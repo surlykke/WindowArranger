@@ -1,0 +1,4 @@
+#!/usr/bin/env WindowArranger
+eDP-1: H[V['title=T1' 'title=T2'] H['title=T3' 'title=T4']]
+
+
