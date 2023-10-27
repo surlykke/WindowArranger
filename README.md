@@ -84,6 +84,20 @@ WindowArranger -dump - configfile
 
 The former variant will write to file arrangescript.sh, the latter to stdout.
 
+
+### Wait 
+
+With the `wait` option you can instruct `WindowArranger` to wait until the windows you want to arrange are present. Say you have a selector 'title=Window1' in your config, then WindowArranger will wait until a window matching that is present. So with:
+
+```
+WindowArranger -wait 20 configFile
+```
+
+`WindowArranger` will wait up to 20 seconds for all selectors in the config to find a match.
+
+If the 20 seconds pass without all windows appearing, `WindowManager` exits with a non-zero exit code.
+
+
 ### Config file syntax
 
 The syntax is somewhat aligned with how ```swaymsg -t get_workspacs``` reports layouts.

@@ -26,6 +26,7 @@ func main() {
 	}
 
 	var dumpFile = flag.String("dump", "", "Dont execute but write script to a file")
+	var waitSeconds = flag.Uint("wait", 0, "Seconds to wait for all selectors in config to match a window")
 	flag.Parse()
 
 	var configFilePath string = ""
@@ -36,7 +37,7 @@ func main() {
 		configFilePath = flag.Args()[0]
 	}
 
-	scriptFilePath := build(configFilePath)
+	scriptFilePath := build(configFilePath, *waitSeconds)
 	defer os.Remove(scriptFilePath)
 
 	if *dumpFile == "" {
@@ -44,15 +45,21 @@ func main() {
 	} else {
 		dump(scriptFilePath, *dumpFile)
 	}
-
 }
 
 func run(scriptFilePath string) {
 	if err := os.Chmod(scriptFilePath, 0744); err != nil {
 		panic(err)
-	} else if err := exec.Command(scriptFilePath).Run(); err != nil {
-		panic(err)
+	} else {
+		var cmd = exec.Command(scriptFilePath)
+		cmd.Stdout = os.Stdout 
+		cmd.Stderr = os.Stderr
+
+		if err = cmd.Run(); err != nil {
+			os.Exit(1)
+		}
 	}
+
 }
 
 func dump(scriptFilePath string, dumpFilePath string) {
@@ -65,7 +72,7 @@ func dump(scriptFilePath string, dumpFilePath string) {
 	}
 }
 
-func build(configFilePath string) string {
+func build(configFilePath string, waitSeconds uint) string {
 	var bytes []byte
 	var scriptFileName string
 	var scriptFile *os.File
@@ -89,7 +96,7 @@ func build(configFilePath string) string {
 
 	scriptFileName = scriptFile.Name()
 
-	for _, line := range Generate(Parse(bytes)) {
+	for _, line := range Generate(Parse(bytes), waitSeconds) {
 		fmt.Fprintln(scriptFile, line)
 	}
 

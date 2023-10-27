@@ -8,14 +8,14 @@ import (
 var workspaceNo int = 1
 var containerCount = 1
 
-//go:embed wait.sh
-var waitFunction string
+//go:embed functions.sh
+var functions string
 
-func Generate(workspaces []Workspace) []string {
+func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	var program []string
 
-	var add = func(line string) {
-		program = append(program, line)
+	var add = func(format string, v ...interface{}) {
+		program = append(program, fmt.Sprintf(format, v...))
 	}
 
 	var cmd = func(format string, v ...interface{}) {
@@ -26,16 +26,16 @@ func Generate(workspaces []Workspace) []string {
 		var title = fmt.Sprintf("dummy_window_%02d", containerCount)
 		containerCount = containerCount + 1
 		node.Selector = fmt.Sprintf("title=\"%s\"", title)
-		add(fmt.Sprintf("dummywindow %s &", title))
+		add("dummywindow %s &", title)
 	}
 
 	
-	var executeList func(nodes []*Node)
+	var executeList func([]*Node)
 	executeList = func(nodes []*Node) {
 		for _, node := range nodes {
 			if node.Children != nil {
 				createDummyWindow(node)
-				add(fmt.Sprintf("wait '%s'", node.Selector))
+				add("wait '%s'", node.Selector)
 			}
 			cmd("[%s] move workspace %d; [%s] focus", node.Selector, workspaceNo, node.Selector)
 		}
@@ -47,8 +47,33 @@ func Generate(workspaces []Workspace) []string {
 		}
 	}
 
+	var collectWindowSelectorsHelper func([]*Node) string
+	collectWindowSelectorsHelper = func(nodes []*Node) string {
+		var result = ""
+		for _, node := range nodes {
+			if node.Children == nil {
+				result = result + node.Selector + " "
+			} else {
+				result = result + collectWindowSelectorsHelper(node.Children)
+			}
+		}
+		return result
+	}
+
+	var collectWindowSelectors = func(workspaces []Workspace) string {
+		var result = ""
+		for _, workspace := range workspaces {
+			result = result + collectWindowSelectorsHelper(workspace.Node.Children)
+		}
+		return result
+	}		
+
+
 	add("#!/usr/bin/env bash")
-	add(waitFunction)
+	program = append(program, functions)
+	if waitSeconds > 0 {
+		add("waitWithDeadline $(( $(date +%%s) + %d )) %s", waitSeconds, collectWindowSelectors(workspaces))
+	}
 	cmd("[title=.*] move workspace temp")
 	for _, workspace := range workspaces {
 		executeList(workspace.Node.Children)
