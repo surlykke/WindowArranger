@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -16,13 +15,7 @@ type Node struct {
 	Children []*Node
 }
 
-func Parse(bytes []byte) (workspaces []Workspace, err error) {
-	defer func() {
-		if panicErr := recover(); panicErr != nil {
-			workspaces, err = nil, errors.New(fmt.Sprint(panicErr))
-		}
-	}()
-
+func Parse(bytes []byte) []Workspace {
 	var tokens = Tokenize(bytes) 
 	var currentToken Token
 
@@ -112,9 +105,9 @@ func Parse(bytes []byte) (workspaces []Workspace, err error) {
 
 
 	next()
-	workspaces = nil
+	var workspaces []Workspace = nil
 	for currentToken.Text != "" {
 		workspaces = append(workspaces, readOutput())
 	}
-	return workspaces, nil
+	return workspaces
 }
