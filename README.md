@@ -56,6 +56,16 @@ swaymsg '[title=Window1] focus
 
 So those strings must be valid swaymsg selectors.
 
+If no configfile is given WindowArranger will read the configuration from standard input, so you could also do:
+
+```
+WindowArranger <<EOF
+    eDP-1: H[V['title=Window1' 'title=Window2'] T['title=Window3' 'title=Window4']]
+EOF
+
+```
+
+
 ### Dump
 
 WindowArranger works by transforming the config file into a bash script file containing mostly ```swaymsg``` commands, and then run it.

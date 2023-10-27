@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 )
@@ -11,7 +12,8 @@ func main() {
 	flag.Usage = func() {
 		var out = flag.CommandLine.Output()
 		fmt.Fprintln(out, "usage:")
-		fmt.Fprintln(out, "  WindowWrapper [option]... file")
+		fmt.Fprintln(out, "  WindowWrapper [option]... [configfile]")
+		fmt.Fprintln(out, "        if configfile is not given, configuration will be read from standard input")
 		fmt.Fprintln(out, "options:")
 		flag.PrintDefaults()
 	}
@@ -19,11 +21,11 @@ func main() {
 	var dumpFile = flag.String("dump", "", "Dont execute but write script to a file")
 	flag.Parse()
 
-	var configFilePath string 
-	if len(flag.Args()) != 1 {
+	var configFilePath string = ""
+	if len(flag.Args()) > 1 {
 		flag.Usage()
 		os.Exit(1)
-	} else {
+	} else if len(flag.Args()) == 1 {
 		configFilePath = flag.Args()[0]
 	}
 
@@ -71,12 +73,17 @@ func dump(scriptFilePath string, dumpFilePath string) error {
 }
 
 func build(configFilePath string) (string, error) {
+	var bytes []byte
+	var workspaces []Workspace
 	var scriptFileName string
 	var scriptFile *os.File
-	var bytes []byte
 	var err error
 
-	if bytes, err = os.ReadFile(configFilePath); err != nil {
+	if configFilePath == "" {
+		if bytes, err = io.ReadAll(os.Stdin); err != nil {
+			return "", err
+		}
+	} else if bytes, err = os.ReadFile(configFilePath); err != nil {
 		return "", err
 	}
 
@@ -88,9 +95,12 @@ func build(configFilePath string) (string, error) {
 
 	scriptFileName = scriptFile.Name()
 
-	var program = Generate(Parse(bytes))
-	for _, line := range program {
-		fmt.Fprintln(scriptFile, line)
+	if workspaces, err = Parse(bytes); err != nil {
+		return "", err
+	} else {
+		for _, line := range Generate(workspaces) {
+			fmt.Fprintln(scriptFile, line)
+		}
 	}
 	return scriptFileName, nil
 }
