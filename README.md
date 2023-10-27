@@ -51,7 +51,7 @@ This will place a horizontally split workspace on output 'eDP-1', with two conta
 A string like "title=Window1" is used to select a window, and is, in fact, passed on to swaymsg, in constructs like 
 
 ```
-swaymsg '[title=Window1] focus
+swaymsg '[title=Window1] focus'
 ``` 
 
 So those strings must be valid swaymsg selectors.
@@ -70,7 +70,7 @@ EOF
 
 WindowArranger works by transforming the config file into a bash script file containing mostly ```swaymsg``` commands, and then run it.
 
-In stead of running the generated script you may have `WindowArranger` write it to stdout or a file. Use the 'dump' option to do that:
+In stead of running the generated script you may have `WindowArranger` write it to stdout or a file. Use the `dump` option to do that:
 
 ```
 WindowArranger -dump arrangescript.sh configfile
@@ -87,7 +87,7 @@ The former variant will write to file arrangescript.sh, the latter to stdout.
 
 ### Wait 
 
-With the `wait` option you can instruct `WindowArranger` to wait until the windows you want to arrange are present. Say you have a selector 'title=Window1' in your config, then WindowArranger will wait until a window matching that is present. So with:
+With the `wait` option you can instruct `WindowArranger` to wait until the windows you want to arrange are present. Say you have a selector `title=Window1` in your config, then `WindowArranger` will wait until a window matching that is present. So with:
 
 ```
 WindowArranger -wait 20 configFile
@@ -95,7 +95,7 @@ WindowArranger -wait 20 configFile
 
 `WindowArranger` will wait up to 20 seconds for all selectors in the config to find a match.
 
-If the 20 seconds pass without all windows appearing, `WindowManager` exits with a non-zero exit code.
+If the 20 seconds pass without all windows appearing, `WindowArranger` exits with a non-zero exit code.
 
 
 ### Config file syntax
@@ -165,4 +165,12 @@ A slight difficulty with swaymsg is that you can't really create containers. Wha
 
 Once the layout is completed all dummywindows are closed. 
 
-To that end, when you install WindowArranger, you also get a small stupid program `dummywindow` in $HOME/.local/bin. WindowArranger uses that to create the dummy windows. 
+To that end, when you install WindowArranger, you also get a small stupid program `dummywindow` in $HOME/.local/bin. `dummywindow' can be called like:
+
+```
+dummywindow some-title
+```
+
+to create a window titled 'some-title'
+
+WindowArranger uses `dummywindow` to create the dummy windows. 
