@@ -54,7 +54,7 @@ A string like "title=Window1" is used to select a window, and is, in fact, passe
 swaymsg '[title=Window1] focus'
 ``` 
 
-So those strings must be valid swaymsg selectors.
+So those strings must be valid swaymsg criteria.
 
 If no configfile is given WindowArranger will read the configuration from standard input, so you could also do:
 
@@ -87,13 +87,13 @@ The former variant will write to file arrangescript.sh, the latter to stdout.
 
 ### Wait 
 
-With the `wait` option you can instruct `WindowArranger` to wait until the windows you want to arrange are present. Say you have a selector `title=Window1` in your config, then `WindowArranger` will wait until a window matching that is present. So with:
+With the `wait` option you can instruct `WindowArranger` to wait until the windows you want to arrange are present. Say you have a criteria `title=Window1` in your config, then `WindowArranger` will wait until a window matching that is present. So with:
 
 ```
 WindowArranger -wait 20 configFile
 ```
 
-`WindowArranger` will wait up to 20 seconds for all selectors in the config to find a match.
+`WindowArranger` will wait up to 20 seconds for all criteria in the config to find a match.
 
 If the 20 seconds pass without all windows appearing, `WindowArranger` exits with a non-zero exit code.
 
@@ -122,7 +122,7 @@ T   for tabbed
 S   for stacking
 ```
 
-and &lt;content&gt; is a (space separated) list of selectorstrings and/or containers. 
+and &lt;content&gt; is a (space separated) list of criteria and/or containers. 
 
 Each output expression will create a workspace with the given layout and place it on the output. Workspaces will be numbered in the order they are encountered. 
 
@@ -142,7 +142,6 @@ You can also write comments. Anything from a `#` tho end-of-line is ignored:
 # This is ignored
 eDP-1: H[V['title=Window1' 'title=Window2'] T['title=Window3' 'title=Window4']]
 ```
-
 
 ### Shebang
 

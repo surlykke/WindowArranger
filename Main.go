@@ -26,7 +26,7 @@ func main() {
 	}
 
 	var dumpFile = flag.String("dump", "", "Dont execute but write script to a file")
-	var waitSeconds = flag.Uint("wait", 0, "Seconds to wait for all selectors in config to match a window")
+	var waitSeconds = flag.Uint("wait", 0, "Seconds to wait for all criteria in config to match a window")
 	flag.Parse()
 
 	var configFilePath string = ""

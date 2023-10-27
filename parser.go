@@ -10,7 +10,7 @@ type Workspace struct {
 }
 
 type Node struct {
-	Selector string
+	Criteria string
 	Layout   string
 	Children []*Node
 }
@@ -78,7 +78,7 @@ func Parse(bytes []byte) []Workspace {
 
 	var readNode = func() *Node {
 		if str, ok := readString(); ok {
-			return &Node{Selector: str}
+			return &Node{Criteria: str}
 		} else {
 			return readNodeList()
 		}
