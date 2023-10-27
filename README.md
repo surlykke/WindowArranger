@@ -56,6 +56,24 @@ swaymsg '[title=Window1] focus
 
 So those strings must be valid swaymsg selectors.
 
+### Dump
+
+WindowArranger works by transforming the config file into a bash script file containing mostly ```swaymsg``` commands, and then run it.
+
+In stead of running the generated script you may have `WindowArranger` write it to stdout or a file. Use the 'dump' option to do that:
+
+```
+WindowArranger -dump arrangescript.sh configfile
+```
+
+or
+
+```
+WindowArranger -dump - configfile
+```
+
+The former variant will write to file arrangescript.sh, the latter to stdout.
+
 ### Config file syntax
 
 The syntax is somewhat aligned with how ```swaymsg -t get_workspacs``` reports layouts.

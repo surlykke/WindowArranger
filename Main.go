@@ -1,42 +1,96 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 )
 
 func main() {
-
-	var scriptFilePath = build()
-	//fmt.Println(scriptFilePath)
-	defer os.Remove(scriptFilePath)
-
-	os.Chmod(scriptFilePath, 0744)
-	var cmd = exec.Command(scriptFilePath)
-	if err := cmd.Run(); err != nil {
-		fmt.Println(err)
+	flag.Usage = func() {
+		var out = flag.CommandLine.Output()
+		fmt.Fprintln(out, "usage:")
+		fmt.Fprintln(out, "  WindowWrapper [option]... file")
+		fmt.Fprintln(out, "options:")
+		flag.PrintDefaults()
 	}
-}
 
-func build() string {
-	var scriptFileName string
-	if bytes, err := os.ReadFile(os.Args[1]); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	var dumpFile = flag.String("dump", "", "Dont execute but write script to a file")
+	flag.Parse()
+
+	var configFilePath string 
+	if len(flag.Args()) != 1 {
+		flag.Usage()
 		os.Exit(1)
-	} else if scriptFile, err := os.CreateTemp("", "disp_config*.sh"); err != nil {
+	} else {
+		configFilePath = flag.Args()[0]
+	}
+
+	if scriptFilePath, err := build(configFilePath); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	} else {
-		scriptFileName = scriptFile.Name()
-		defer scriptFile.Close()
+		defer os.Remove(scriptFilePath)
 
-		var workspaces = Parse(bytes)
-		var program = Generate(workspaces)
-		for _, line := range program {
-			//fmt.Println(line)
-			fmt.Fprintln(scriptFile, line)
+		if *dumpFile == "" {
+			if err := run(scriptFilePath); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+
+		} else if err := dump(scriptFilePath, *dumpFile); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+
 		}
 	}
-	return scriptFileName
+
+}
+
+func run(scriptFilePath string) error {
+	if err := os.Chmod(scriptFilePath, 0744); err != nil {
+		return err
+	} else if err := exec.Command(scriptFilePath).Run(); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func dump(scriptFilePath string, dumpFilePath string) error {
+	if prog, err := os.ReadFile(scriptFilePath); err != nil {
+		return err
+	} else if dumpFilePath == "-" {
+		fmt.Println(string(prog))
+	} else if err := os.WriteFile(dumpFilePath, prog, 0744); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func build(configFilePath string) (string, error) {
+	var scriptFileName string
+	var scriptFile *os.File
+	var bytes []byte
+	var err error
+
+	if bytes, err = os.ReadFile(configFilePath); err != nil {
+		return "", err
+	}
+
+	if scriptFile, err = os.CreateTemp("", "disp_config*.sh"); err != nil {
+		return "", err
+	} else {
+		defer scriptFile.Close()
+	}
+
+	scriptFileName = scriptFile.Name()
+
+	var program = Generate(Parse(bytes))
+	for _, line := range program {
+		fmt.Fprintln(scriptFile, line)
+	}
+	return scriptFileName, nil
 }

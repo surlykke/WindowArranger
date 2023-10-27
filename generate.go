@@ -9,7 +9,7 @@ var workspaceNo int = 1
 var containerCount = 1
 
 //go:embed wait.sh
-var wait string
+var waitFunction string
 
 func Generate(workspaces []Workspace) []string {
 	var program []string
@@ -48,7 +48,7 @@ func Generate(workspaces []Workspace) []string {
 	}
 
 	add("#!/usr/bin/env bash")
-	add(wait)
+	add(waitFunction)
 	cmd("[title=.*] move workspace temp")
 	for _, workspace := range workspaces {
 		executeList(workspace.Node.Children)
