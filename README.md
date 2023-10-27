@@ -65,6 +65,9 @@ EOF
 
 ```
 
+### Surplus windows
+
+Open windows that are not mentioned in the configuration will be left in a workspace named `window_arranger_temp_workspace`, placed on the first output named in the configuration 
 
 ### Dump
 

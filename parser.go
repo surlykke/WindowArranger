@@ -109,5 +109,8 @@ func Parse(bytes []byte) []Workspace {
 	for currentToken.Text != "" {
 		workspaces = append(workspaces, readOutput())
 	}
+	if len(workspaces) == 0 {
+		panic("Empty configuration")
+	}
 	return workspaces
 }

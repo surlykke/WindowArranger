@@ -12,6 +12,7 @@ var containerCount = 1
 var functions string
 
 func Generate(workspaces []Workspace, waitSeconds uint) []string {
+	const tempWorkspace = "window_arranger_temp_workspace"
 	var program []string
 
 	var add = func(format string, v ...interface{}) {
@@ -51,7 +52,7 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	if waitSeconds > 0 {
 		add("waitWithDeadline $(( $(date +%%s) + %d )) %s", waitSeconds, collectCriteriaFromWorkspaces(workspaces))
 	}
-	cmd("[title=.*] move workspace temp")
+	cmd("[title=.*] move workspace %s", tempWorkspace)
 	for _, workspace := range workspaces {
 		executeList(workspace.Node.Children)
 		cmd("[%s] focus", workspace.Node.Children[0].Criteria)
@@ -63,6 +64,10 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	}
 
 	cmd(`[title="^dummy_window_"] kill`)
+	add("if swaymsg '[workspace=%s] focus'; then", tempWorkspace)
+	add("  swaymsg 'move workspace to output %s'", workspaces[0].Output)
+	add("fi")
+	
 	return program
 }
 
