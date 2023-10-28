@@ -9,7 +9,6 @@ type TokenType string
 const (
 	String     TokenType = "string"
 	Identifier           = "identifier"
-	Number               = "number"
 	Other                = "other"
 )
 
@@ -30,9 +29,7 @@ func scan(bytes []byte, tokenSink chan Token) {
 	defer close(tokenSink)
 
 	var identifier = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9\-]*`) // Assume monitornames never start with a number
-	var number = regexp.MustCompile("^[1-9][0-9]*")
 	var singleQuoteString = regexp.MustCompile(`^'.*?'`)
-	var doubleQuoteString = regexp.MustCompile(`^"[^"]*"`)
 	var comment = regexp.MustCompile(`^\#.*`)
 
 
@@ -66,10 +63,6 @@ func scan(bytes []byte, tokenSink chan Token) {
 			emit(Identifier, match[1])
 		} else if match = singleQuoteString.FindIndex(bytes[pos:]); match != nil {
 			emit(String, match[1])
-		} else if match = doubleQuoteString.FindIndex(bytes[pos:]); match != nil {
-			emit(String, match[1])
-		} else if match = number.FindIndex(bytes[pos:]); match != nil {
-			emit(Number, match[1])
 		} else if match = comment.FindIndex(bytes[pos:]); match != nil {
 			pos = pos + match[1]
 		} else {
