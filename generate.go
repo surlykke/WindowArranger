@@ -30,8 +30,8 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 		add("dummywindow %s &", title)
 	}
 
-	var executeList func([]*Node)
-	executeList = func(nodes []*Node) {
+	var doNodeList func([]*Node)
+	doNodeList = func(nodes []*Node) {
 		for _, node := range nodes {
 			if node.Children != nil {
 				createDummyWindow(node)
@@ -42,7 +42,7 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 		for _, node := range nodes {
 			if node.Children != nil {
 				cmd("[%s] focus; splitv; layout %s", node.Criteria, node.Layout)
-				executeList(node.Children)
+				doNodeList(node.Children)
 			}
 		}
 	}
@@ -50,11 +50,13 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	add("#!/usr/bin/env bash")
 	program = append(program, functions)
 	if waitSeconds > 0 {
-		add("waitWithDeadline $(( $(date +%%s) + %d )) %s", waitSeconds, collectCriteriaFromWorkspaces(workspaces))
+		add("DEADLINE=$(( $(date +%%s) + %d ))", waitSeconds)
+		add("wait  %s", collectCriteria(workspaces))
+		add("DEADLINE=")
 	}
 	cmd("[title=.*] move workspace %s", tempWorkspace)
 	for _, workspace := range workspaces {
-		executeList(workspace.Node.Children)
+		doNodeList(workspace.Node.Children)
 		cmd("[%s] focus", workspace.Node.Children[0].Criteria)
 		cmd("focus parent")
 		cmd("focus parent")
@@ -64,28 +66,25 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	}
 
 	cmd(`[title="^dummy_window_"] kill`)
-	add("if swaymsg '[workspace=%s] focus'; then", tempWorkspace)
-	add("  swaymsg 'move workspace to output %s'", workspaces[0].Output)
-	add("fi")
-	
+
 	return program
 }
 
-func collectCriteriaFromWorkspaces(workspaces []Workspace) string {
+func collectCriteria(workspaces []Workspace) string {
 	var result = ""
 	for _, workspace := range workspaces {
-		result = result + collectCriteriaFromNodes(workspace.Node.Children)
+		result = result + collectCriteriaRecursively(workspace.Node.Children)
 	}
 	return result
 }
 
-func collectCriteriaFromNodes(nodes []*Node) string {
+func collectCriteriaRecursively(nodes []*Node) string {
 	var result = ""
 	for _, node := range nodes {
 		if node.Children == nil {
-			result = result + node.Criteria + " "
+			result = result + "'" + node.Criteria + "' "
 		} else {
-			result = result + collectCriteriaFromNodes(node.Children)
+			result = result + collectCriteriaRecursively(node.Children)
 		}
 	}
 	return result
