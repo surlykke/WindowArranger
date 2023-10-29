@@ -16,6 +16,23 @@ func main() {
 		}
 	}()
 
+	var dumpFile, waitSeconds, configFilePath = getCliArgs()	
+	var bytes = getConfig(configFilePath)
+	var scriptFile = getScriptFile()
+
+	build(scriptFile, bytes, waitSeconds)
+	if err := scriptFile.Close(); err != nil{
+		panic(err)
+	}
+	defer os.Remove(scriptFile.Name())
+	if dumpFile == "" {
+		run(scriptFile.Name())
+	} else {
+		dump(scriptFile.Name(), dumpFile)
+	}
+}
+
+func getCliArgs() (dumpFile string, wait uint, configFilePath string) {
 	flag.Usage = func() {
 		var out = flag.CommandLine.Output()
 		fmt.Fprintln(out, "usage:")
@@ -25,25 +42,55 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	var dumpFile = flag.String("dump", "", "Dont execute but write script to a file")
-	var waitSeconds = flag.Uint("wait", 0, "Seconds to wait for all criteria in config to match a window")
+	var df = flag.String("dump", "", "Dont execute but write script to a file")
+	var ws = flag.Uint("wait", 0, "Seconds to wait for all criteria in config to match a window")
 	flag.Parse()
-
-	var configFilePath string = ""
+	
 	if len(flag.Args()) > 1 {
 		flag.Usage()
 		os.Exit(1)
-	} else if len(flag.Args()) == 1 {
-		configFilePath = flag.Args()[0]
-	}
-
-	scriptFilePath := build(configFilePath, *waitSeconds)
-	defer os.Remove(scriptFilePath)
-
-	if *dumpFile == "" {
-		run(scriptFilePath)
+	} 
+	
+	if len(flag.Args()) == 1 {
+		return *df, *ws, flag.Args()[0]
 	} else {
-		dump(scriptFilePath, *dumpFile)
+		return *df, *ws, ""
+	}
+}
+
+func getConfig(configFilePath string) []byte {
+	var (
+		bytes []byte
+		err error
+	)
+
+	if configFilePath == "" {
+		bytes, err = io.ReadAll(os.Stdin)
+	} else {
+		bytes, err = os.ReadFile(configFilePath)
+	}
+	
+	if err != nil {
+		panic(err)
+	}
+	
+	return bytes 
+}
+
+func getScriptFile() *os.File {
+	if f, err := os.CreateTemp("", "disp_config*.sh"); err != nil {
+		panic(err)
+	} else {
+		return f
+	}
+}
+
+func build(scriptFile *os.File, bytes []byte, waitSeconds uint) {
+	var workSpaces = Parse(bytes)
+	for _, line := range Generate(workSpaces, waitSeconds) {
+		if _, err := fmt.Fprintln(scriptFile, line); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -54,12 +101,10 @@ func run(scriptFilePath string) {
 		var cmd = exec.Command(scriptFilePath)
 		cmd.Stdout = os.Stdout 
 		cmd.Stderr = os.Stderr
-
 		if err = cmd.Run(); err != nil {
 			os.Exit(1)
 		}
 	}
-
 }
 
 func dump(scriptFilePath string, dumpFilePath string) {
@@ -70,35 +115,4 @@ func dump(scriptFilePath string, dumpFilePath string) {
 	} else if err := os.WriteFile(dumpFilePath, prog, 0744); err != nil {
 		panic(err)
 	}
-}
-
-func build(configFilePath string, waitSeconds uint) string {
-	var bytes []byte
-	var scriptFileName string
-	var scriptFile *os.File
-	var err error
-
-	if configFilePath == "" {
-		bytes, err = io.ReadAll(os.Stdin)
-	} else {
-		bytes, err = os.ReadFile(configFilePath)
-	}
-
-	if err != nil {
-		panic(err)
-	}
-
-	if scriptFile, err = os.CreateTemp("", "disp_config*.sh"); err != nil {
-		panic(err)
-	} else {
-		defer scriptFile.Close()
-	}
-
-	scriptFileName = scriptFile.Name()
-
-	for _, line := range Generate(Parse(bytes), waitSeconds) {
-		fmt.Fprintln(scriptFile, line)
-	}
-
-	return scriptFileName
 }

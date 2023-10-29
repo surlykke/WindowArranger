@@ -50,12 +50,19 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	add("#!/usr/bin/env bash")
 	program = append(program, functions)
 	if waitSeconds > 0 {
+		add("# Wait for all windows to be present")
 		add("DEADLINE=$(( $(date +%%s) + %d ))", waitSeconds)
 		add("wait  %s", collectCriteria(workspaces))
 		add("DEADLINE=")
+		add("")
 	}
+
+	add("# Move everything aside")		
 	cmd("[title=.*] move workspace %s", tempWorkspace)
+	add("")
+
 	for _, workspace := range workspaces {
+		add("# Workspace %d on %s", workspaceNo, workspace.Output)
 		doNodeList(workspace.Node.Children)
 		cmd("[%s] focus", workspace.Node.Children[0].Criteria)
 		cmd("focus parent")
@@ -63,8 +70,10 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 		cmd("layout %s", workspace.Node.Layout)
 		cmd("move workspace to output %s", workspace.Output)
 		workspaceNo = workspaceNo + 1
+		add("")
 	}
 
+	add("# Clean up")	
 	cmd(`[title="^dummy_window_"] kill`)
 
 	return program

@@ -1,5 +1,5 @@
 #!/usr/bin/env WindowArranger
 eDP-1: T['title=VPN' V['title=Work' 'title=Log']]
-eDP-1: H[H['instance=chromium' 'title="Visual Studio Code"'] V['title=Slack' 'title=Teams']]
+eDP-1: H[H[T['instance=chromium'] T['title="Visual Studio Code"']] V['title=Slack' 'title=Teams']]
 
 

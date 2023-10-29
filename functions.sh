@@ -11,7 +11,3 @@ function wait {
         shift
     done
 }
-
-
-
-

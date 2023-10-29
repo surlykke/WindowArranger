@@ -20,15 +20,12 @@ type Node struct {
 
 func Parse(bytes []byte) []Workspace {
 	var (
-		runeCount        int = 0
-		currentLine      int = 1
-		currentLineStart int = 0
-		layoutMap            = map[string]string{
-			"H": "splith",
-			"V": "splitv",
-			"T": "tabbed",
-			"S": "stacking",
-		}
+		currentChar      rune = 0
+		isInString       bool = false
+		isInComment      bool = false
+		runeCount        int  = 0
+		currentLine      int  = 1
+		currentLineStart int  = 0
 	)
 
 	var failIf = func(condition bool, msg string) {
@@ -37,94 +34,99 @@ func Parse(bytes []byte) []Workspace {
 		}
 	}
 
-	var currentRune = func() rune {
+	var isCurrentCharWhitespace = func() bool {
+		return unicode.IsSpace(currentChar) || isInComment
+	}
+
+	var gotoNextChar = func() {
 		r, w := utf8.DecodeRune(bytes)
 		failIf(r == utf8.RuneError && w > 0, "Not valid utf-8")
-		return r
+		if isInComment {
+			isInComment = r != '\n' && r != utf8.RuneError
+		} else if isInString {
+			failIf(r == utf8.RuneError, "String not terminated")
+			if r == '\'' {
+				isInString = false
+			}
+		} else {
+			if r == '\'' {
+				isInString = true
+			} else if r == '#' {
+				isInComment = true
+			}
+		}
+		currentChar = r
+		bytes = bytes[w:]	
 	}
 
-	var skip = func() {
-		_, w := utf8.DecodeRune(bytes)
-		runeCount = runeCount + 1
-		bytes = bytes[w:]
-	}
-
-	var skipWhitespace = func() {
-		var inComment = false
+	var gotoNextNonWsChar = func() {
 		for {
-			if unicode.IsSpace(currentRune()) || currentRune() == '#' || inComment {
-				if currentRune() == '\n' {
-					currentLine = currentLine + 1
-					currentLineStart = runeCount
-					inComment = false
-				} else if currentRune() == '#' {
-					inComment = true
-				}
-				skip()
-			} else {
+			gotoNextChar()
+			if !isCurrentCharWhitespace() {
 				break
 			}
 		}
 	}
 
-	var nextNonWsRune = func() rune {
-		skipWhitespace()
-		return currentRune()
-	}
-
 	var readString = func() string {
-	
+
 		var builder = strings.Builder{}
-		
-		for	skip(); '\'' != currentRune(); skip() { 
-			failIf(currentRune() == utf8.RuneError , "String not terminated")
-			builder.WriteRune(currentRune())
+
+		for gotoNextChar(); isInString; gotoNextChar() {
+			builder.WriteRune(currentChar)
 		}
-		skip()
+		gotoNextNonWsChar()
 		return builder.String()
 	}
 
-	var readNodeList func() *Node
-	readNodeList = func() *Node {
-		var layout = layoutMap[string(nextNonWsRune())]
-		failIf("" == layout, "Layout type (H,V,T or S) expected")
-		skip()
-
-		var node = &Node{
-			Layout: layout,
+	var readLayout func() *Node
+	readLayout = func() *Node {
+		var layoutMap = map[string]string{
+			"H": "splith",
+			"V": "splitv",
+			"T": "tabbed",
+			"S": "stacking",
 		}
+		var node = &Node{
+			Layout: layoutMap[string(currentChar)],
+		}
+		failIf("" == node.Layout, "Layout type (H,V,T or S) expected")
+		gotoNextNonWsChar()
 
-		failIf(nextNonWsRune() != '[', "'[' expected")
-		skip()
+		failIf(currentChar != '[', "'[' expected")
+		gotoNextNonWsChar()
 
-		for nextNonWsRune() != ']' {
-			if nextNonWsRune() == '\'' {
+		for currentChar != ']' {
+			if currentChar == '\'' {
 				node.Children = append(node.Children, &Node{Criteria: readString()})
 			} else {
-				node.Children = append(node.Children, readNodeList())
+				node.Children = append(node.Children, readLayout())
 			}
 		}
-		skip()
+		gotoNextNonWsChar()
 		return node
 	}
 
 	var readOutput = func() Workspace {
-		failIf(!unicode.IsLetter(nextNonWsRune()), "Output identifier expected")
 		var outputBuilder = strings.Builder{}
-		outputBuilder.WriteRune(currentRune())
-		skip()
 
-		for ; unicode.IsLetter(currentRune()) || unicode.IsDigit(currentRune()) || '-' == currentRune(); skip() {
-			outputBuilder.WriteRune(currentRune())
+		failIf(!unicode.IsLetter(currentChar), "Output identifier expected")
+		outputBuilder.WriteRune(currentChar)
+
+		for gotoNextChar(); unicode.IsLetter(currentChar) || unicode.IsDigit(currentChar) || '-' == currentChar; gotoNextChar() {
+			outputBuilder.WriteRune(currentChar)
 		}
-
-		failIf(':' != nextNonWsRune(), "':' expected")
-		skip()
-		return Workspace{Output: outputBuilder.String(), Node: readNodeList()}
+		if isCurrentCharWhitespace() {
+			gotoNextNonWsChar()
+		}
+		failIf(':' != currentChar, "':' expected")
+		gotoNextNonWsChar()
+		return Workspace{Output: outputBuilder.String(), Node: readLayout()}
 	}
 
 	var workspaces []Workspace = nil
-	for nextNonWsRune() != utf8.RuneError {
+	gotoNextNonWsChar()
+	for currentChar != utf8.RuneError {
 		workspaces = append(workspaces, readOutput())
 	}
 	if len(workspaces) == 0 {
@@ -132,4 +134,3 @@ func Parse(bytes []byte) []Workspace {
 	}
 	return workspaces
 }
-
