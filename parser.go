@@ -20,17 +20,16 @@ type Node struct {
 
 func Parse(bytes []byte) []Workspace {
 	var (
-		currentChar      rune = 0
-		isInString       bool = false
-		isInComment      bool = false
-		runeCount        int  = 0
-		currentLine      int  = 1
-		currentLineStart int  = 0
+		currentChar   rune = 0
+		isInString    bool = false
+		isInComment   bool = false
+		currentLine   int  = 1
+		currentColumn int  = 1
 	)
 
 	var failIf = func(condition bool, msg string) {
 		if condition {
-			panic(fmt.Sprintf("%d,%d: %s", currentLine, runeCount-currentLineStart, msg))
+			panic(fmt.Sprintf("%d,%d: %s", currentLine, currentColumn, msg))
 		}
 	}
 
@@ -55,8 +54,13 @@ func Parse(bytes []byte) []Workspace {
 				isInComment = true
 			}
 		}
+		if currentChar == '\n' {
+			currentLine, currentColumn = currentLine+1, 1
+		} else {
+			currentColumn = currentColumn + 1
+		}
 		currentChar = r
-		bytes = bytes[w:]	
+		bytes = bytes[w:]
 	}
 
 	var gotoNextNonWsChar = func() {
@@ -68,10 +72,10 @@ func Parse(bytes []byte) []Workspace {
 		}
 	}
 
+	// The read functions expect, when called, currentChar to be the first char of what they read
+	// and they ensure, on return, currentChar to be first non-whitespace char after what they read.
 	var readString = func() string {
-
 		var builder = strings.Builder{}
-
 		for gotoNextChar(); isInString; gotoNextChar() {
 			builder.WriteRune(currentChar)
 		}
@@ -92,10 +96,8 @@ func Parse(bytes []byte) []Workspace {
 		}
 		failIf("" == node.Layout, "Layout type (H,V,T or S) expected")
 		gotoNextNonWsChar()
-
 		failIf(currentChar != '[', "'[' expected")
 		gotoNextNonWsChar()
-
 		for currentChar != ']' {
 			if currentChar == '\'' {
 				node.Children = append(node.Children, &Node{Criteria: readString()})
@@ -108,11 +110,9 @@ func Parse(bytes []byte) []Workspace {
 	}
 
 	var readOutput = func() Workspace {
-		var outputBuilder = strings.Builder{}
-
 		failIf(!unicode.IsLetter(currentChar), "Output identifier expected")
+		var outputBuilder = strings.Builder{}
 		outputBuilder.WriteRune(currentChar)
-
 		for gotoNextChar(); unicode.IsLetter(currentChar) || unicode.IsDigit(currentChar) || '-' == currentChar; gotoNextChar() {
 			outputBuilder.WriteRune(currentChar)
 		}
