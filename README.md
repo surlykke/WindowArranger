@@ -1,8 +1,8 @@
 ## WindowArranger
 
-WindowArranger is a simple tool to arrange windows when using the Sway window manger.
+WindowArranger is a simple tool to arrange windows when using Sway or i3. 
 
-Support for I3 may come later...
+In the following we will describe WindowArranger as used on ```sway```. If you're on i3, you should read ```swaymsg``` as ```i3-msg```.
 
 ### Install
 
@@ -19,7 +19,7 @@ If you're on another distro, please consult the manual.
 To build, do:
 
 ```
-cd to/dir/where/you/want/WindowArranger-dir
+cd to/where/you/want/WindowArranger-dir
 
 git clone https://github.com:surlykke/WindowArranger.git
 cd WindowArranger
@@ -46,7 +46,7 @@ Assume you have 4 windows open, imaginatively named Window1, Window2, Window3 an
 eDP-1: H[V['title=Window1' 'title=Window2'] T['title=Window3' 'title=Window4']]
 ```
 
-This will place a horizontally split workspace on output 'eDP-1', with two containers. The first _split vertically_ containing Window1 and Window2, the secoond _tabbed_ with Window3 and Window4.
+This will place a horizontally split workspace on output 'eDP-1', with two containers. The first _split vertically_ containing Window1 and Window2, the second _tabbed_ with Window3 and Window4.
 
 A string like "title=Window1" is used to select a window, and is, in fact, passed on to swaymsg, in constructs like 
 
@@ -73,7 +73,7 @@ Open windows that are not mentioned in the configuration will be left in a works
 
 WindowArranger works by transforming the config file into a bash script file containing mostly ```swaymsg``` commands, and then run it.
 
-In stead of running the generated script you may have `WindowArranger` write it to stdout or a file. Use the `dump` option to do that:
+In stead of running the generated script, `WindowArranger` can write it to stdout or a file. Use the `dump` option to do that:
 
 ```
 WindowArranger -dump arrangescript.sh configfile

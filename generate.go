@@ -21,7 +21,7 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	}
 
 	var cmd = func(format string, v ...interface{}) {
-		add("swaymsg '" + fmt.Sprintf(format, v...) + "'")
+		add("$MSG '" + fmt.Sprintf(format, v...) + "'")
 	}
 
 	var createDummyWindow = func(node *Node) {
@@ -49,7 +49,6 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 		}
 	}
 
-	add("#!/usr/bin/env bash")
 	program = []string{scriptStart}
 	if waitSeconds > 0 {
 		add("# Wait for all windows to be present")

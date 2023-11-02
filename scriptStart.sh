@@ -1,7 +1,12 @@
+#!/usr/bin/env bash
+export MSG=swaymsg
+if [[ "i3" == "${XDG_SESSION_DESKTOP}" ]]; then 
+	MSG=i3-msg
+fi
+
 function wait {
     while (($#)); do 
-        echo swaymsg "[$1] focus"
-        while !  swaymsg "[$1] focus"> /dev/null; do 
+        while !  $MSG "[$1] focus"> /dev/null; do 
             sleep 0.1; 
             if [[ -n "$DEADLINE" ]] && [[ "$DEADLINE" -lt $(date +%s) ]]; then 
                 echo "Window specified by "$1" did not appear before timeout" >&2
@@ -11,3 +16,4 @@ function wait {
         shift
     done
 }
+
