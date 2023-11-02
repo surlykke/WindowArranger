@@ -8,8 +8,8 @@ import (
 var workspaceNo int = 1
 var containerCount = 1
 
-//go:embed functions.sh
-var functions string
+//go:embed scriptStart.sh
+var scriptStart string
 
 func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	const tempWorkspace = "window_arranger_temp_workspace"
@@ -50,7 +50,7 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	}
 
 	add("#!/usr/bin/env bash")
-	program = append(program, functions)
+	program = []string{scriptStart}
 	if waitSeconds > 0 {
 		add("# Wait for all windows to be present")
 		add("DEADLINE=$(( $(date +%%s) + %d ))", waitSeconds)
