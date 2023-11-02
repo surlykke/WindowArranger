@@ -13,6 +13,7 @@ var functions string
 
 func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	const tempWorkspace = "window_arranger_temp_workspace"
+	var dummywindowsCreated = false
 	var program []string
 
 	var add = func(format string, v ...interface{}) {
@@ -28,6 +29,7 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 		containerCount = containerCount + 1
 		node.Criteria = fmt.Sprintf("title=\"%s\"", title)
 		add("dummywindow %s &", title)
+		dummywindowsCreated = true
 	}
 
 	var doNodeList func([]*Node)
@@ -57,7 +59,7 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 		add("")
 	}
 
-	add("# Move everything aside")		
+	add("# Move everything aside")
 	cmd("[title=.*] move workspace %s", tempWorkspace)
 	add("")
 
@@ -73,9 +75,10 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 		add("")
 	}
 
-	add("# Clean up")	
-	cmd(`[title="^dummy_window_"] kill`)
-
+	if dummywindowsCreated {
+		add("# Clean up")
+		cmd(`[title="^dummy_window_"] kill`)
+	}
 	return program
 }
 
