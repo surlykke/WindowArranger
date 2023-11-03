@@ -5,57 +5,84 @@ import (
 	"fmt"
 )
 
-var workspaceNo int = 1
-var containerCount = 1
+const tempWorkspace = "window_arranger_temp_workspace"
 
 //go:embed scriptStart.sh
 var scriptStart string
 
+var allCriteria = ""
+var workspaceNo int = 1
+var containerCount = 1
+var program []string
+
+func add(format string, v ...interface{}) {
+	program = append(program, fmt.Sprintf(format, v...))
+}
+
+func cmd(format string, v ...interface{}) {
+	add("$MSG '" + fmt.Sprintf(format, v...) + "'")
+}
+
+func collectCriteriaRecursively(node *Node) {
+	if node.Children == nil {
+		allCriteria = allCriteria + "'" + node.Criteria + "' "
+	} else {
+		for _, child := range node.Children {
+			collectCriteriaRecursively(child)
+		}
+	}
+}
+
+func wait(workspaces []Workspace, waitSeconds uint) {
+	for _, workspace := range workspaces {
+		collectCriteriaRecursively(workspace.Node)
+	}
+
+	add("# Wait for all windows to be present")
+	add("DEADLINE=$(( $(date +%%s) + %d ))", waitSeconds)
+	add("wait  %s", allCriteria)
+	add("DEADLINE=")
+	add("")
+}
+
+func createDummyWindow() string {
+	var title = fmt.Sprintf("dummy_window_%02d", containerCount)
+	containerCount = containerCount + 1
+	var criteria = fmt.Sprintf("title=%s", title)
+	add("dummywindow %s &", title)
+	add("wait '%s'", criteria)
+	cmd("[%s] move workspace %s", criteria, tempWorkspace)
+	return criteria
+}
+
+func createDummyWindows(node *Node) {
+	if node.Children != nil {
+		node.Criteria = createDummyWindow()
+		for _, child := range node.Children {
+			createDummyWindows(child)
+		}
+	}
+}
+
+func doNode(node *Node) {
+	cmd("[%s] focus", node.Criteria)
+	for _, child := range node.Children {
+		cmd("[%s] move workspace %d", child.Criteria, workspaceNo)
+		cmd("[%s] focus", child.Criteria)
+	}
+
+	for _, child := range node.Children {
+		if child.Children != nil {
+			cmd("[%s] focus; splitv; layout %s", child.Criteria, child.Layout)
+			doNode(child)
+		}
+	}
+}
+
 func Generate(workspaces []Workspace, waitSeconds uint) []string {
-	const tempWorkspace = "window_arranger_temp_workspace"
-	var dummywindowsCreated = false
-	var program []string
-
-	var add = func(format string, v ...interface{}) {
-		program = append(program, fmt.Sprintf(format, v...))
-	}
-
-	var cmd = func(format string, v ...interface{}) {
-		add("$MSG '" + fmt.Sprintf(format, v...) + "'")
-	}
-
-	var createDummyWindow = func(node *Node) {
-		var title = fmt.Sprintf("dummy_window_%02d", containerCount)
-		containerCount = containerCount + 1
-		node.Criteria = fmt.Sprintf("title=\"%s\"", title)
-		add("dummywindow %s &", title)
-		dummywindowsCreated = true
-	}
-
-	var doNodeList func([]*Node)
-	doNodeList = func(nodes []*Node) {
-		for _, node := range nodes {
-			if node.Children != nil {
-				createDummyWindow(node)
-				add("wait '%s'", node.Criteria)
-			}
-			cmd("[%s] move workspace %d; [%s] focus", node.Criteria, workspaceNo, node.Criteria)
-		}
-		for _, node := range nodes {
-			if node.Children != nil {
-				cmd("[%s] focus; splitv; layout %s", node.Criteria, node.Layout)
-				doNodeList(node.Children)
-			}
-		}
-	}
-
 	program = []string{scriptStart}
 	if waitSeconds > 0 {
-		add("# Wait for all windows to be present")
-		add("DEADLINE=$(( $(date +%%s) + %d ))", waitSeconds)
-		add("wait  %s", collectCriteria(workspaces))
-		add("DEADLINE=")
-		add("")
+		wait(workspaces, waitSeconds)
 	}
 
 	add("# Move everything aside")
@@ -64,39 +91,15 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 
 	for _, workspace := range workspaces {
 		add("# Workspace %d on %s", workspaceNo, workspace.Output)
-		doNodeList(workspace.Node.Children)
-		cmd("[%s] focus", workspace.Node.Children[0].Criteria)
-		cmd("focus parent")
-		cmd("focus parent")
-		cmd("layout %s", workspace.Node.Layout)
+		createDummyWindows(workspace.Node)
+		cmd("[%s] move workspace %d", workspace.Node.Criteria, workspaceNo)
+		cmd("[%s] focus; focus parent; layout %s", workspace.Node.Criteria, workspace.Node.Layout)
 		cmd("move workspace to output %s", workspace.Output)
-		workspaceNo = workspaceNo + 1
-		add("")
-	}
-
-	if dummywindowsCreated {
-		add("# Clean up")
+		doNode(workspace.Node)
 		cmd(`[title="^dummy_window_"] kill`)
+		add("")
+		workspaceNo = workspaceNo + 1
 	}
+
 	return program
-}
-
-func collectCriteria(workspaces []Workspace) string {
-	var result = ""
-	for _, workspace := range workspaces {
-		result = result + collectCriteriaRecursively(workspace.Node.Children)
-	}
-	return result
-}
-
-func collectCriteriaRecursively(nodes []*Node) string {
-	var result = ""
-	for _, node := range nodes {
-		if node.Children == nil {
-			result = result + "'" + node.Criteria + "' "
-		} else {
-			result = result + collectCriteriaRecursively(node.Children)
-		}
-	}
-	return result
 }
