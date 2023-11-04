@@ -124,6 +124,8 @@ would create 3 workspaces: 1 and 2 placed on eDP-1 and 3 placed on DP-1.
   WindowWrapper [option]... [configfile]
 ```
 
+If no configfile is given, `WindowArranger` reads the configuration from standard input.
+
 #### Options
 ```
     -dump string
