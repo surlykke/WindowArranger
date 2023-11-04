@@ -37,13 +37,13 @@ func getCliArgs() (dumpFile string, wait uint, configFilePath string) {
 		var out = flag.CommandLine.Output()
 		fmt.Fprintln(out, "usage:")
 		fmt.Fprintln(out, "  WindowWrapper [option]... [configfile]")
-		fmt.Fprintln(out, "        if configfile is not given, configuration will be read from standard input")
+		fmt.Fprintln(out, "        If configfile is not given, configuration will be read from standard input")
 		fmt.Fprintln(out, "options:")
 		flag.PrintDefaults()
 	}
 
-	var df = flag.String("dump", "", "Dont execute but write script to a file")
-	var ws = flag.Uint("wait", 0, "Seconds to wait for all criteria in config to match a window")
+	var df = flag.String("dump", "", "Dont execute generated script, but write it to a file. '-' means standard out.")
+	var ws = flag.Uint("wait", 0, "Wait <uint seconds> for all criteria in config to match a window")
 	flag.Parse()
 	
 	if len(flag.Args()) > 1 {
