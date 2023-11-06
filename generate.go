@@ -10,9 +10,9 @@ const tempWorkspace = "window_arranger_temp_workspace"
 //go:embed scriptStart.sh
 var scriptStart string
 
-var allCriteria = ""
-var workspaceNo int = 1
-var containerCount = 1
+var allCriteria    string = ""
+var workspaceNo    uint = 1
+var containerCount uint = 1
 var program []string
 
 func add(format string, v ...interface{}) {
