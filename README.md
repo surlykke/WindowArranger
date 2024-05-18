@@ -6,15 +6,18 @@ In the following we will describe WindowArranger as used on ```sway```. If you'r
 
 ## Install
 
-You need go and gtk libraries.
+You need go and fyne installed.
 
 On Ubuntu this is probably sufficient:
 
 ```
-sudo apt install golang libgtk-3-dev libglib2.0-dev libgdk-pixbuf2.0-dev
+sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev
 ```
 
 If you're on another distro, please consult the manual.
+
+Please note that WindowArranger creates dummywindows which run under X, so you'll need xwayland running. Once fyne applications
+can run natively under wayland, this requirement will go away.
 
 To build, do:
 
@@ -113,10 +116,18 @@ So:
 ```
 eDP-1: T['title=VPN' V['title=Work' 'title=Log']]
 eDP-1: H['title=DbVisualizer' 'app_id=firefox']
-DP-1:  H['instance=chromium' title=IntelliJ] V['instance: slack' 'title: "^Microsoft Teams"']]
+DP-1:  H['instance=chromium' title=IntelliJ V['instance: slack' 'title: "^Microsoft Teams"']]
 ```
 
-would create 3 workspaces: 1 and 2 placed on eDP-1 and 3 placed on DP-1.
+would create 3 workspaces: 1 and 2 placed on eDP-1 and 3 placed on DP-1. 
+
+Workspace 1 has a tabbed container, with a window titled 'VPN' and then a v-split container 
+with a window titled 'Work' and a window titled 'Log'
+
+Workspace 2 is horizontally split containing a window titled 'DbVisualizer' and a window with app_id 'firefox'.
+
+Workspace 3 is horizontally split with first a window with instance 'chromium' (an X window), 
+then a window titled 'IntelliJ' and then a v-split container with first slack, then microsoft teams.
 
 ### Usage 
 
@@ -136,7 +147,7 @@ If no configfile is given, `WindowArranger` reads the configuration from standar
 
 WindowArranger works by transforming the configuration into a bash script file containing mostly `swaymsg` commands, and then run it.
 
-In stead of running the generated script, `WindowArranger` can write it to stdout or a file. Use the `dump` option to do that:
+Rather than running the generated script, `WindowArranger` can write it to stdout or a file. Use the `dump` option to do that:
 
 ```
 WindowArranger -dump arrangescript.sh configfile
@@ -184,7 +195,9 @@ Open windows that are not mentioned in the configuration will be left in a works
 
 ### Dummy windows
 
-A slight difficulty with swaymsg is that you can't really create containers. What you can do, is focus on a window, and then call eg. `splitv`. Therefore, in order to create the containers, specified by a configuration, WindowArranger resorts to an ugly hack: It creates a dummy window, focuses it, and calls `splitv` or one of the other layouts on it, to create a container, and then fills specified windows and subcontainers into that.
+A slight difficulty with swaymsg is that you can't really create containers. What you can do, is focus on a window, and then call eg. `splitv`. 
+Therefore, in order to create the containers, specified by a configuration, WindowArranger resorts to an ugly hack: 
+It creates a dummy window, focuses it, and calls `splitv` or one of the other layouts on it, to create a container, and then fills specified windows and subcontainers into that.
 
 Once the layout is completed all dummywindows are closed. 
 
@@ -196,4 +209,4 @@ dummywindow some-title
 
 to create a window titled 'some-title'
 
-WindowArranger uses `dummywindow` to create the dummy windows. 
+WindowArranger uses `dummywindow` to create the dummy windows. dummywindow is a go-fyne application and is why this project depends on fyne.
