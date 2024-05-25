@@ -1,0 +1,5 @@
+This is the RefudeServices project.
+The project is licensed under the GPL v2 license. See the file ./GPL2
+
+The file lib/image/NamedColors.go contains color names for the xpm2 format. I assume that information is in the public domain. See the file for details.
+
