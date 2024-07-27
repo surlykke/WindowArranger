@@ -3,7 +3,6 @@
 // This file is part of the WindowArranger project.
 // It is distributed under the GPL v2 license.
 // Please refer to the GPL2 file for a copy of the license.
-//
 package main
 
 import (
@@ -68,13 +67,12 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 
 func doWorkSpace(workspace Workspace, workspaceNo int) {
 	add("# Workspace %d on %s", workspaceNo, workspace.Output)
-	cmd("workspace to output %d", workspaceNo)
-	cmd("move workspace to output %s", workspace.Output)
 	var allCriteria = getAllCriteria(workspace.Node)
 	for _, criteria := range getAllCriteria(workspace.Node) {
 		cmd("[%s] move to workspace %d", criteria, workspaceNo)
 	}
 	cmd("[%s] focus; layout %s", allCriteria[0], workspace.Node.Layout)
+	cmd("move workspace to output %s", workspace.Output)
 
 	for _, subNode := range workspace.Node.Children {
 		doSubNode(subNode)
