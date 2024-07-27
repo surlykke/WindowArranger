@@ -7,10 +7,6 @@ import (
 
 const tempWorkspace = "window_arranger_temp_workspace"
 
-//go:embed scriptStart.sh
-var scriptStart string
-
-var allCriteria string = ""
 var workspaceNo uint = 1
 var containerCount uint = 1
 var program []string
@@ -20,35 +16,38 @@ func add(format string, v ...interface{}) {
 }
 
 func cmd(format string, v ...interface{}) {
-	add("$MSG '" + fmt.Sprintf(format, v...) + "'")
+	add("swaymsg '" + fmt.Sprintf(format, v...) + "'")
 }
 
-func collectCriteriaRecursively(node *Node) {
-	if node.Children == nil {
-		allCriteria = allCriteria + "'" + node.Criteria + "' "
-	} else {
-		for _, child := range node.Children {
-			collectCriteriaRecursively(child)
-		}
-	}
-}
+func wait(allCriteria []string, waitSeconds uint) {
+	add(`# Wait for all windows to be present`)
 
-func wait(workspaces []Workspace, waitSeconds uint) {
-	for _, workspace := range workspaces {
-		collectCriteriaRecursively(workspace.Node)
-	}
+	add(`# Takes a criteria as first argument and deadline as second`)
+	add(`function wait {`)
+	add(`	while !  swaymsg "[$1] focus"> /dev/null; do `)
+	add(`		if [[ "$2" -lt "$(date +%%x)" ]]; then `)
+	add(`			echo "Window specified by $1 did not appear before timeout"`)
+	add(`			exit 1`)
+	add(`		fi`)
+	add(`		sleep 0.1; `)
+	add(`	done`)
+	add(`}`)
 
-	add("# Wait for all windows to be present")
 	add("DEADLINE=$(( $(date +%%s) + %d ))", waitSeconds)
-	add("wait  %s", allCriteria)
-	add("DEADLINE=")
+	for _, criteria := range allCriteria {
+		add("wait '%s' $DEADLINE", criteria)
+	}
 	add("")
 }
 
 func Generate(workspaces []Workspace, waitSeconds uint) []string {
-	program = []string{scriptStart}
+	program = []string{`#!/usr/bin/env bash`}
 	if waitSeconds > 0 {
-		wait(workspaces, waitSeconds)
+		var allCriteria = make([]string, 0, 20)
+		for _, workspace := range workspaces {
+			allCriteria = append(allCriteria, getAllCriteria(workspace.Node)...)
+		}
+		wait(allCriteria, waitSeconds)
 	}
 
 	add("# Move everything aside")
@@ -65,11 +64,11 @@ func doWorkSpace(workspace Workspace, workspaceNo int) {
 	add("# Workspace %d on %s", workspaceNo, workspace.Output)
 	cmd("workspace to output %d", workspaceNo)
 	cmd("move workspace to output %s", workspace.Output)
-	var leaves = getLeaves(workspace.Node)
-	for _, leave := range getLeaves(workspace.Node) {
-		cmd("[%s] move to workspace %d", leave, workspaceNo)
+	var allCriteria = getAllCriteria(workspace.Node)
+	for _, criteria := range getAllCriteria(workspace.Node) {
+		cmd("[%s] move to workspace %d", criteria, workspaceNo)
 	}
-	cmd("[%s] focus; layout %s", leaves[0], workspace.Node.Layout)
+	cmd("[%s] focus; layout %s", allCriteria[0], workspace.Node.Layout)
 
 	for _, subNode := range workspace.Node.Children {
 		doSubNode(subNode)
@@ -81,14 +80,14 @@ func doSubNode(node *Node) {
 	if node.Layout == "" {
 		return
 	}
-	var leaves = getLeaves(node)
-	cmd(`[%s] focus; split v`, leaves[0])
+	var allCriteriaForNode = getAllCriteria(node)
+	cmd(`[%s] focus; split v`, allCriteriaForNode[0])
 	if node.Layout != "splitv" {
-		cmd(`[%s] focus; layout %s`, leaves[0], node.Layout)
+		cmd(`[%s] focus; layout %s`, allCriteriaForNode[0], node.Layout)
 	}
-	cmd(`[%s] mark current`, leaves[0])
-	for i := len(leaves) - 1; i > 0; i-- {
-		cmd(`[%s] move to mark current`, leaves[i])
+	cmd(`[%s] mark current`, allCriteriaForNode[0])
+	for i := len(allCriteriaForNode) - 1; i > 0; i-- {
+		cmd(`[%s] move to mark current`, allCriteriaForNode[i])
 	}
 	cmd(`unmark current`)
 	for _, subnode := range node.Children {
@@ -96,18 +95,18 @@ func doSubNode(node *Node) {
 	}
 }
 
-func getLeaves(node *Node) []string {
-	var leaves = make([]string, 0, 10)
+func getAllCriteria(node *Node) []string {
+	var allCriteria = make([]string, 0, 10)
 	var walk func(*Node)
 	walk = func(node *Node) {
 		for _, child := range node.Children {
 			if child.Criteria != "" {
-				leaves = append(leaves, child.Criteria)
+				allCriteria = append(allCriteria, child.Criteria)
 			} else {
 				walk(child)
 			}
 		}
 	}
 	walk(node)
-	return leaves
+	return allCriteria
 }
