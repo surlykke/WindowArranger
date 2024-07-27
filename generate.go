@@ -10,8 +10,8 @@ const tempWorkspace = "window_arranger_temp_workspace"
 //go:embed scriptStart.sh
 var scriptStart string
 
-var allCriteria    string = ""
-var workspaceNo    uint = 1
+var allCriteria string = ""
+var workspaceNo uint = 1
 var containerCount uint = 1
 var program []string
 
@@ -45,40 +45,6 @@ func wait(workspaces []Workspace, waitSeconds uint) {
 	add("")
 }
 
-func createDummyWindow() string {
-	var title = fmt.Sprintf("dummy_window_%02d", containerCount)
-	containerCount = containerCount + 1
-	var criteria = fmt.Sprintf("title=%s", title)
-	add("dummywindow %s &", title)
-	add("wait '%s'", criteria)
-	cmd("[%s] move workspace %s", criteria, tempWorkspace)
-	return criteria
-}
-
-func createDummyWindows(node *Node) {
-	if node.Children != nil {
-		node.Criteria = createDummyWindow()
-		for _, child := range node.Children {
-			createDummyWindows(child)
-		}
-	}
-}
-
-func doNode(node *Node) {
-	cmd("[%s] focus", node.Criteria)
-	for _, child := range node.Children {
-		cmd("[%s] move workspace %d", child.Criteria, workspaceNo)
-		cmd("[%s] focus", child.Criteria)
-	}
-
-	for _, child := range node.Children {
-		if child.Children != nil {
-			cmd("[%s] focus; splitv; layout %s", child.Criteria, child.Layout)
-			doNode(child)
-		}
-	}
-}
-
 func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	program = []string{scriptStart}
 	if waitSeconds > 0 {
@@ -89,17 +55,59 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	cmd("[title=.*] move workspace %s", tempWorkspace)
 	add("")
 
-	for _, workspace := range workspaces {
-		add("# Workspace %d on %s", workspaceNo, workspace.Output)
-		createDummyWindows(workspace.Node)
-		cmd("[%s] move workspace %d", workspace.Node.Criteria, workspaceNo)
-		cmd("[%s] focus; focus parent; layout %s", workspace.Node.Criteria, workspace.Node.Layout)
-		cmd("move workspace to output %s", workspace.Output)
-		doNode(workspace.Node)
-		cmd(`[title="^dummy_window_"] kill`)
-		add("")
-		workspaceNo = workspaceNo + 1
+	for i, workspace := range workspaces {
+		doWorkSpace(workspace, i+1)
 	}
-
 	return program
+}
+
+func doWorkSpace(workspace Workspace, workspaceNo int) {
+	add("# Workspace %d on %s", workspaceNo, workspace.Output)
+	cmd("workspace to output %d", workspaceNo)
+	cmd("move workspace to output %s", workspace.Output)
+	var leaves = getLeaves(workspace.Node)
+	for _, leave := range getLeaves(workspace.Node) {
+		cmd("[%s] move to workspace %d", leave, workspaceNo)
+	}
+	cmd("[%s] focus; layout %s", leaves[0], workspace.Node.Layout)
+
+	for _, subNode := range workspace.Node.Children {
+		doSubNode(subNode)
+	}
+	add("")
+}
+
+func doSubNode(node *Node) {
+	if node.Layout == "" {
+		return
+	}
+	var leaves = getLeaves(node)
+	cmd(`[%s] focus; split v`, leaves[0])
+	if node.Layout != "splitv" {
+		cmd(`[%s] focus; layout %s`, leaves[0], node.Layout)
+	}
+	cmd(`[%s] mark current`, leaves[0])
+	for i := len(leaves) - 1; i > 0; i-- {
+		cmd(`[%s] move to mark current`, leaves[i])
+	}
+	cmd(`unmark current`)
+	for _, subnode := range node.Children {
+		doSubNode(subnode)
+	}
+}
+
+func getLeaves(node *Node) []string {
+	var leaves = make([]string, 0, 10)
+	var walk func(*Node)
+	walk = func(node *Node) {
+		for _, child := range node.Children {
+			if child.Criteria != "" {
+				leaves = append(leaves, child.Criteria)
+			} else {
+				walk(child)
+			}
+		}
+	}
+	walk(node)
+	return leaves
 }

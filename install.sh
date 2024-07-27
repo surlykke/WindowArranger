@@ -4,6 +4,4 @@ set -e
 
 export GOBIN=${HOME}/.local/bin
 go install 
-cd dummywindow
-go install 
 
