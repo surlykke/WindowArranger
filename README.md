@@ -1,23 +1,18 @@
 # WindowArranger
 
-WindowArranger is a simple tool to arrange windows when using Sway or i3. 
-
-In the following we will describe WindowArranger as used on ```sway```. If you're on i3, you should read ```swaymsg``` as ```i3-msg```.
+WindowArranger is a simple tool to arrange windows when using Sway 
 
 ## Install
 
-You need go and fyne installed.
+You need go installed.
 
-On Ubuntu this is probably sufficient:
+On Debian or a Debian-derived distro this is probably sufficient:
 
 ```
-sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev
+sudo apt-get install golang 
 ```
 
 If you're on another distro, please consult the manual.
-
-Please note that WindowArranger creates dummywindows which run under X, so you'll need xwayland running. Once fyne applications
-can run natively under wayland, this requirement will go away.
 
 To build, do:
 
@@ -29,10 +24,8 @@ cd WindowArranger
 ./install.sh
 ```
 
-This installs two executables ```WindowArranger``` and ```dummywindow``` into ```$HOME/.local/bin```. 
+This installs the executable ```WindowArranger``` into ```$HOME/.local/bin```. 
 (which has to be in your `$PATH`)
-
-More on `dummywindow` below
 
 ## Run
 
@@ -54,7 +47,7 @@ A string like "title=Window1" is used to select a window, and is, in fact, passe
 
 ```
 swaymsg '[title=Window1] focus'
-``` 
+```
 
 So those strings must be valid swaymsg criteria. 
 
@@ -80,7 +73,7 @@ Informally, a configuration consists of a sequence of expressions of the form:
  output: container
 ```
 
-`output` is the name of an output - eg. eDP-1 or DP-1 and should match one of your outputs.
+`output` is the name of an output - eg. eDP-1 or DP-1 and should match one of your outputs. (As reported by `swaymsg -t get_outputs`)
 
 A container is of the form:
 ```
@@ -192,21 +185,3 @@ and run with just:
 ### Surplus windows
 
 Open windows that are not mentioned in the configuration will be left in a workspace named `window_arranger_temp_workspace`.
-
-### Dummy windows
-
-A slight difficulty with swaymsg is that you can't really create containers. What you can do, is focus on a window, and then call eg. `splitv`. 
-Therefore, in order to create the containers, specified by a configuration, WindowArranger resorts to an ugly hack: 
-It creates a dummy window, focuses it, and calls `splitv` or one of the other layouts on it, to create a container, and then fills specified windows and subcontainers into that.
-
-Once the layout is completed all dummywindows are closed. 
-
-To that end, when you install WindowArranger, you also get a small stupid program `dummywindow` in $HOME/.local/bin. `dummywindow' can be called like:
-
-```
-dummywindow some-title
-```
-
-to create a window titled 'some-title'
-
-WindowArranger uses `dummywindow` to create the dummy windows. dummywindow is a go-fyne application and is why this project depends on fyne.
