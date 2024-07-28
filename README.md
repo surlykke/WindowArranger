@@ -182,6 +182,20 @@ and run with just:
 ./configfile
 ```
 
+### Limitations
+
+There are certain layouts that Sway does not seem to accept. For example
+
+```
+H[V[V['title=MyWindow']]
+```
+will become 
+```
+H[V['title=MyWindow']
+```
+
+YMMV.
+
 ### Surplus windows
 
 Open windows that are not mentioned in the configuration will be left in a workspace named `window_arranger_temp_workspace`.
