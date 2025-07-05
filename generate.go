@@ -16,11 +16,11 @@ var workspaceNo uint = 1
 var containerCount uint = 1
 var program []string
 
-func add(format string, v ...interface{}) {
+func add(format string, v ...any) {
 	program = append(program, fmt.Sprintf(format, v...))
 }
 
-func cmd(format string, v ...interface{}) {
+func cmd(format string, v ...any) {
 	add("swaymsg '" + fmt.Sprintf(format, v...) + "'")
 }
 
@@ -50,7 +50,7 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 	if waitSeconds > 0 {
 		var allCriteria = make([]string, 0, 20)
 		for _, workspace := range workspaces {
-			allCriteria = append(allCriteria, getAllCriteria(workspace.Node)...)
+			allCriteria = append(allCriteria, getAllCriteria(workspace.Children)...)
 		}
 		wait(allCriteria, waitSeconds)
 	}
@@ -67,14 +67,15 @@ func Generate(workspaces []Workspace, waitSeconds uint) []string {
 
 func doWorkSpace(workspace Workspace, workspaceNo int) {
 	add("# Workspace %d on %s", workspaceNo, workspace.Output)
-	var allCriteria = getAllCriteria(workspace.Node)
-	for _, criteria := range getAllCriteria(workspace.Node) {
-		cmd("[%s] move to workspace %d", criteria, workspaceNo)
+	var allCriteria = getAllCriteria(workspace.Children)
+	if len(allCriteria) > 0 {
+		cmd("[%s] move to workspace %d", allCriteria[0], workspaceNo)
+		cmd("[%s] focus; layout %s", allCriteria[0], workspace.Layout)
+		for i := len(allCriteria) - 1; i > 0; i-- {
+			cmd("[%s] move to workspace %d", allCriteria[i], workspaceNo)
+		}
 	}
-	cmd("[%s] focus; layout %s", allCriteria[0], workspace.Node.Layout)
-	cmd("move workspace to output %s", workspace.Output)
-
-	for _, subNode := range workspace.Node.Children {
+	for _, subNode := range workspace.Children {
 		doSubNode(subNode)
 	}
 	add("")
@@ -84,33 +85,30 @@ func doSubNode(node *Node) {
 	if node.Layout == "" {
 		return
 	}
-	var allCriteriaForNode = getAllCriteria(node)
-	cmd(`[%s] focus; split v`, allCriteriaForNode[0])
-	if node.Layout != "splitv" {
-		cmd(`[%s] focus; layout %s`, allCriteriaForNode[0], node.Layout)
+
+	var allCriteria = getAllCriteria(node.Children)
+	if len(allCriteria) > 0 {
+		cmd(`[%s] focus; split v`, allCriteria[0])
+		cmd(`[%s] layout %s; mark current`, allCriteria[0], node.Layout)
+		for i := len(allCriteria) - 1; i > 0; i-- {
+			cmd(`[%s] move to mark current`, allCriteria[i])
+		}
+		cmd(`unmark current`)
 	}
-	cmd(`[%s] mark current`, allCriteriaForNode[0])
-	for i := len(allCriteriaForNode) - 1; i > 0; i-- {
-		cmd(`[%s] move to mark current`, allCriteriaForNode[i])
-	}
-	cmd(`unmark current`)
+
 	for _, subnode := range node.Children {
 		doSubNode(subnode)
 	}
 }
 
-func getAllCriteria(node *Node) []string {
-	var allCriteria = make([]string, 0, 10)
-	var walk func(*Node)
-	walk = func(node *Node) {
-		for _, child := range node.Children {
-			if child.Criteria != "" {
-				allCriteria = append(allCriteria, child.Criteria)
-			} else {
-				walk(child)
-			}
+func getAllCriteria(nodes []*Node) []string {
+	var criteria = []string{}
+	for _, n := range nodes {
+		if n.Criteria != "" {
+			criteria = append(criteria, n.Criteria)
+		} else {
+			criteria = append(criteria, getAllCriteria(n.Children)...)
 		}
 	}
-	walk(node)
-	return allCriteria
+	return criteria
 }

@@ -1,142 +1,99 @@
-// Copyright (c) Christian Surlykke
-//
-// This file is part of the WindowArranger project.
-// It is distributed under the GPL v2 license.
-// Please refer to the GPL2 file for a copy of the license.
-//
 package main
 
-import (
-	"fmt"
-	"strings"
-	"unicode"
-	"unicode/utf8"
-)
+import "fmt"
 
-type Workspace struct {
-	Output string
-	Node   *Node
+type Parser struct {
+	tokens   chan token
+	curToken token
+	ok       bool
 }
 
-type Node struct {
-	Criteria string
-	Layout   string
-	Children []*Node
+func MakeParser(bytes []byte) Parser {
+	var parser = Parser{
+		tokens: make(chan token),
+	}
+	go scan(parser.tokens, []rune(string(bytes)))
+	return parser
 }
 
 func Parse(bytes []byte) []Workspace {
-	var (
-		currentChar   rune = 0
-		isInString    bool = false
-		isInComment   bool = false
-		currentLine   int  = 1
-		currentColumn int  = 1
-	)
+	var tokens = make(chan token)
 
-	var failIf = func(condition bool, msg string) {
-		if condition {
-			panic(fmt.Sprintf("%d,%d: %s", currentLine, currentColumn, msg))
+	go scan(tokens, []rune(string(bytes)))
+
+	var curToken token
+	var ok bool
+
+	var getToken = func() {
+		curToken, ok = <-tokens
+	}
+
+	var mustFind = func(token string) {
+		getToken()
+		if curToken.text != token {
+			panic(fmt.Sprintf("Expected '%s' but found '%s'", token, curToken.text))
 		}
 	}
 
-	var isCurrentCharWhitespace = func() bool {
-		return unicode.IsSpace(currentChar) || isInComment
-	}
+	var layoutMap = map[string]string{
+		"H": "splith",
+		"V": "splitv",
+		"T": "tabbed",
+		"S": "stacked"}
 
-	var gotoNextChar = func() {
-		r, w := utf8.DecodeRune(bytes)
-		failIf(r == utf8.RuneError && w > 0, "Not valid utf-8")
-		if isInComment {
-			isInComment = r != '\n' && r != utf8.RuneError
-		} else if isInString {
-			failIf(r == utf8.RuneError, "String not terminated")
-			if r == '\'' {
-				isInString = false
-			}
+	var getLayout = func() string {
+		if l, ok := layoutMap[curToken.text]; !ok {
+			panic("Layout should be one of 'H', 'V', 'T' or 'S'")
 		} else {
-			if r == '\'' {
-				isInString = true
-			} else if r == '#' {
-				isInComment = true
-			}
+			return l
 		}
-		if currentChar == '\n' {
-			currentLine, currentColumn = currentLine+1, 1
-		} else {
-			currentColumn = currentColumn + 1
-		}
-		currentChar = r
-		bytes = bytes[w:]
 	}
 
-	var gotoNextNonWsChar = func() {
+	var readNodes func() []*Node
+	readNodes = func() []*Node {
+		var nodes = make([]*Node, 0)
 		for {
-			gotoNextChar()
-			if !isCurrentCharWhitespace() {
+			getToken()
+			if !ok {
+				panic("Unexpected end of input")
+			} else if curToken.text == "]" {
 				break
-			}
-		}
-	}
-
-	// The read functions expect, when called, currentChar to be the first char of what they read
-	// and they ensure, on return, currentChar to be first non-whitespace char after what they read.
-	var readString = func() string {
-		var builder = strings.Builder{}
-		for gotoNextChar(); isInString; gotoNextChar() {
-			builder.WriteRune(currentChar)
-		}
-		gotoNextNonWsChar()
-		return builder.String()
-	}
-
-	var readLayout func() *Node
-	readLayout = func() *Node {
-		var layoutMap = map[string]string{
-			"H": "splith",
-			"V": "splitv",
-			"T": "tabbed",
-			"S": "stacking",
-		}
-		var node = &Node{
-			Layout: layoutMap[string(currentChar)],
-		}
-		failIf("" == node.Layout, "Layout type (H,V,T or S) expected")
-		gotoNextNonWsChar()
-		failIf(currentChar != '[', "'[' expected")
-		gotoNextNonWsChar()
-		for currentChar != ']' {
-			if currentChar == '\'' {
-				node.Children = append(node.Children, &Node{Criteria: readString()})
+			} else if curToken.Type == String {
+				nodes = append(nodes, &Node{Criteria: curToken.text})
 			} else {
-				node.Children = append(node.Children, readLayout())
+				var node = &Node{
+					Layout: getLayout(),
+				}
+				mustFind("[")
+				node.Children = readNodes()
+				nodes = append(nodes, node)
 			}
 		}
-		gotoNextNonWsChar()
-		return node
+
+		return nodes
 	}
 
-	var readOutput = func() Workspace {
-		failIf(!unicode.IsLetter(currentChar), "Output identifier expected")
-		var outputBuilder = strings.Builder{}
-		outputBuilder.WriteRune(currentChar)
-		for gotoNextChar(); unicode.IsLetter(currentChar) || unicode.IsDigit(currentChar) || '-' == currentChar; gotoNextChar() {
-			outputBuilder.WriteRune(currentChar)
+	var readWorkSpace = func() Workspace {
+		if curToken.Type != Id {
+			panic("Any workspace definition should start with an output name")
 		}
-		if isCurrentCharWhitespace() {
-			gotoNextNonWsChar()
-		}
-		failIf(':' != currentChar, "':' expected")
-		gotoNextNonWsChar()
-		return Workspace{Output: outputBuilder.String(), Node: readLayout()}
+		var ws = Workspace{Output: curToken.text}
+		mustFind(":")
+		getToken()
+		ws.Layout = getLayout()
+		mustFind("[")
+		ws.Children = readNodes()
+		return ws
 	}
 
-	var workspaces []Workspace = nil
-	gotoNextNonWsChar()
-	for currentChar != utf8.RuneError {
-		workspaces = append(workspaces, readOutput())
-	}
-	if len(workspaces) == 0 {
-		panic("Empty configuration")
+	var workspaces = make([]Workspace, 0)
+	for {
+		getToken()
+		if ok {
+			workspaces = append(workspaces, readWorkSpace())
+		} else {
+			break
+		}
 	}
 	return workspaces
 }
