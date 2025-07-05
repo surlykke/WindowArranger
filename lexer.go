@@ -44,7 +44,7 @@ func scan(sink chan token, runes []rune) {
 		for {
 			next()
 			if current() == '\'' {
-				emit(String, start, pos)
+				emit(String, start+1, pos)
 				next()
 				break
 			} else if current() == 0 {

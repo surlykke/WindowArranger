@@ -74,7 +74,9 @@ func doWorkSpace(workspace Workspace, workspaceNo int) {
 		for i := len(allCriteria) - 1; i > 0; i-- {
 			cmd("[%s] move to workspace %d", allCriteria[i], workspaceNo)
 		}
+		cmd("move workspace to output %s", workspace.Output)
 	}
+
 	for _, subNode := range workspace.Children {
 		doSubNode(subNode)
 	}
