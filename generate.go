@@ -8,99 +8,49 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"io"
 )
 
 const tempWorkspace = "window_arranger_temp_workspace"
 
-var workspaceNo uint = 1
-var containerCount uint = 1
-var program []string
-
-func add(format string, v ...any) {
-	program = append(program, fmt.Sprintf(format, v...))
+func output(out io.Writer, format string, args ...any) {
+	fmt.Fprintf(out, format+"\n", args...)
 }
 
-func cmd(format string, v ...any) {
-	add("swaymsg '" + fmt.Sprintf(format, v...) + "'")
+func swaymsg(out io.Writer, criteria string, command string, args ...any) {
+	if criteria != "" {
+		criteria = "[" + criteria + "] "
+	}
+	var formatString = "swaymsg '" + criteria + command + "'"
+	output(out, formatString, args...)
 }
 
-func wait(allCriteria []string, waitSeconds uint) {
-	add(`# Wait for all windows to be present`)
-
-	add(`# Takes a criteria as first argument and deadline as second`)
-	add(`function wait {`)
-	add(`	while !  swaymsg "[$1] focus"> /dev/null; do `)
-	add(`		if [[ "$2" -lt "$(date +%%x)" ]]; then `)
-	add(`			echo "Window specified by $1 did not appear before timeout"`)
-	add(`			exit 1`)
-	add(`		fi`)
-	add(`		sleep 0.1; `)
-	add(`	done`)
-	add(`}`)
-
-	add("DEADLINE=$(( $(date +%%s) + %d ))", waitSeconds)
-	for _, criteria := range allCriteria {
-		add("wait '%s' $DEADLINE", criteria)
-	}
-	add("")
-}
-
-func Generate(workspaces []Workspace, waitSeconds uint) []string {
-	program = []string{`#!/usr/bin/env bash`}
-	if waitSeconds > 0 {
-		var allCriteria = make([]string, 0, 20)
-		for _, workspace := range workspaces {
-			allCriteria = append(allCriteria, getAllCriteria(workspace.Children)...)
-		}
-		wait(allCriteria, waitSeconds)
-	}
-
-	add("# Move everything aside")
-	cmd("[title=.*] move workspace %s", tempWorkspace)
-	add("")
-
-	for i, workspace := range workspaces {
-		doWorkSpace(workspace, i+1)
-	}
-	return program
-}
-
-func doWorkSpace(workspace Workspace, workspaceNo int) {
-	add("# Workspace %d on %s", workspaceNo, workspace.Output)
-	var allCriteria = getAllCriteria(workspace.Children)
-	if len(allCriteria) > 0 {
-		cmd("[%s] move to workspace %d", allCriteria[0], workspaceNo)
-		cmd("[%s] focus; layout %s", allCriteria[0], workspace.Layout)
-		for i := len(allCriteria) - 1; i > 0; i-- {
-			cmd("[%s] move to workspace %d", allCriteria[i], workspaceNo)
-		}
-		cmd("move workspace to output %s", workspace.Output)
-	}
-
-	for _, subNode := range workspace.Children {
-		doSubNode(subNode)
-	}
-	add("")
-}
-
-func doSubNode(node *Node) {
-	if node.Layout == "" {
+func doWait(out io.Writer, workspaces []Workspace, seconds uint) {
+	if seconds == 0 {
 		return
 	}
 
-	var allCriteria = getAllCriteria(node.Children)
-	if len(allCriteria) > 0 {
-		cmd(`[%s] focus; split v`, allCriteria[0])
-		cmd(`[%s] layout %s; mark current`, allCriteria[0], node.Layout)
-		for i := len(allCriteria) - 1; i > 0; i-- {
-			cmd(`[%s] move to mark current`, allCriteria[i])
+	output(out, `
+        # Takes a criteria as first argument and deadline as second
+        function wait {
+            while !  swaymsg "[$1] focus"> /dev/null; do 
+                if [[ "$2" -lt "$(date +%%x)" ]]; then 
+                    echo "Window specified by $1 did not appear before timeout"
+                    exit 1
+                fi
+                sleep 0.1; 
+            done
+        }
+    
+        DEADLINE=$(( $(date +%%s) + %d ))
+		`, seconds)
+
+	for _, w := range workspaces {
+		for _, criteria := range getAllCriteria(w.Children) {
+			output(out, "wait '%s' $DEADLINE", criteria)
 		}
-		cmd(`unmark current`)
 	}
 
-	for _, subnode := range node.Children {
-		doSubNode(subnode)
-	}
 }
 
 func getAllCriteria(nodes []*Node) []string {
@@ -113,4 +63,51 @@ func getAllCriteria(nodes []*Node) []string {
 		}
 	}
 	return criteria
+}
+
+func doNodeList(out io.Writer, nodes []*Node) {
+	for _, node := range nodes {
+		if node.Criteria == "" {
+			var allC = getAllCriteria(node.Children)
+			if len(allC) > 0 {
+				swaymsg(out, allC[0], "focus")
+				swaymsg(out, allC[0], "split v")
+				swaymsg(out, allC[0], "layout %s", node.Layout)
+				if len(allC) > 1 {
+					swaymsg(out, allC[0], "mark current")
+					for i := len(allC) - 1; i > 0; i-- {
+						swaymsg(out, allC[i], "move to mark current")
+					}
+					swaymsg(out, "", "unmark current")
+				}
+			}
+		}
+	}
+}
+
+func translate(in io.Reader, out io.Writer, waitSeconds uint) {
+	var workspaces = Parse(in)
+
+	output(out, "#!/usr/bin/env bash")
+	doWait(out, workspaces, waitSeconds)
+	output(out, "# Move everything aside")
+	swaymsg(out, "title=.*", "move workspace %d", len(workspaces)+1)
+
+	for i, workspace := range workspaces {
+		output(out, "# Workspace %d on %s", i+1, workspace.Output)
+		var allC = getAllCriteria(workspace.Children)
+		if len(allC) > 0 {
+			swaymsg(out, allC[0], "move to workspace %d", i+1)
+			swaymsg(out, allC[0], "focus")
+			swaymsg(out, allC[0], "layout %s", workspace.Layout)
+			if len(allC) > 1 {
+				for j := len(allC) - 1; j > 0; j-- {
+					swaymsg(out, allC[j], "move to workspace %d", i+1)
+				}
+			}
+			swaymsg(out, "", "move workspace to output %s", workspace.Output)
+		}
+		doNodeList(out, workspace.Children)
+
+	}
 }

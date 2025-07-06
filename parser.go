@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 type Parser struct {
 	tokens   chan token
@@ -8,15 +11,12 @@ type Parser struct {
 	ok       bool
 }
 
-func MakeParser(bytes []byte) Parser {
-	var parser = Parser{
-		tokens: make(chan token),
+func Parse(input io.Reader) []Workspace {
+	var bytes, err = io.ReadAll(input)
+	if err != nil {
+		panic(err)
 	}
-	go scan(parser.tokens, []rune(string(bytes)))
-	return parser
-}
 
-func Parse(bytes []byte) []Workspace {
 	var tokens = make(chan token)
 
 	go scan(tokens, []rune(string(bytes)))

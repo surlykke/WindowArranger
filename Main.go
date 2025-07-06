@@ -26,30 +26,27 @@ type Node struct {
 }
 
 func main() {
-	defer func() {
-		if cause := recover(); cause != nil {
-			fmt.Fprintln(os.Stderr, cause)
-			os.Exit(1)
-		}
-	}()
-
 	var dumpFile, waitSeconds, configFilePath = getCliArgs()
-	var workspaces = Parse(readConfig(configFilePath))
-	var scriptFile = openScriptFile()
-	defer os.Remove(scriptFile.Name())
-	for _, line := range Generate(workspaces, waitSeconds) {
-		if _, err := fmt.Fprintln(scriptFile, line); err != nil {
-			panic(err)
-		}
-	}
-	if err := scriptFile.Close(); err != nil {
+
+	inputReader, err := getInputReader(configFilePath)
+	if err != nil {
 		panic(err)
 	}
-	if dumpFile == "" {
-		runScriptFile(scriptFile.Name())
-	} else {
-		dumpScriptFile(scriptFile.Name(), dumpFile)
+
+	outputWriter, err := getOutputWriter(dumpFile)
+	if err != nil {
+		panic(err)
 	}
+
+	translate(inputReader, outputWriter, waitSeconds)
+
+	inputReader.Close()
+	outputWriter.Close()
+
+	if dumpFile == "" {
+		run(outputWriter.(*os.File).Name())
+	}
+
 }
 
 func getCliArgs() (dumpFile string, wait uint, configFilePath string) {
@@ -78,34 +75,28 @@ func getCliArgs() (dumpFile string, wait uint, configFilePath string) {
 	}
 }
 
-func readConfig(configFilePath string) []byte {
-	var (
-		bytes []byte
-		err   error
-	)
-
-	if configFilePath == "" {
-		bytes, err = io.ReadAll(os.Stdin)
+func getInputReader(path string) (io.ReadCloser, error) {
+	if path == "" {
+		return os.Stdin, nil
+	} else if f, err := os.Open(path); err != nil {
+		return nil, err
 	} else {
-		bytes, err = os.ReadFile(configFilePath)
-	}
-
-	if err != nil {
-		panic(err)
-	}
-
-	return bytes
-}
-
-func openScriptFile() *os.File {
-	if f, err := os.CreateTemp("", "disp_config*.sh"); err != nil {
-		panic(err)
-	} else {
-		return f
+		return f, nil
 	}
 }
 
-func runScriptFile(scriptFilePath string) {
+func getOutputWriter(dumpFile string) (io.WriteCloser, error) {
+	switch dumpFile {
+	case "":
+		return os.CreateTemp("", "disp_config*.sh")
+	case "-":
+		return os.Stdout, nil
+	default:
+		return os.Create(dumpFile)
+	}
+}
+
+func run(scriptFilePath string) {
 	if err := os.Chmod(scriptFilePath, 0744); err != nil {
 		panic(err)
 	} else {
@@ -115,15 +106,5 @@ func runScriptFile(scriptFilePath string) {
 		if err = cmd.Run(); err != nil {
 			os.Exit(1)
 		}
-	}
-}
-
-func dumpScriptFile(scriptFilePath string, dumpFilePath string) {
-	if prog, err := os.ReadFile(scriptFilePath); err != nil {
-		panic(err)
-	} else if dumpFilePath == "-" {
-		fmt.Println(string(prog))
-	} else if err := os.WriteFile(dumpFilePath, prog, 0744); err != nil {
-		panic(err)
 	}
 }
