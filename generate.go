@@ -11,8 +11,6 @@ import (
 	"io"
 )
 
-const tempWorkspace = "window_arranger_temp_workspace"
-
 func output(out io.Writer, format string, args ...any) {
 	fmt.Fprintf(out, format+"\n", args...)
 }

@@ -5,12 +5,6 @@ import (
 	"io"
 )
 
-type Parser struct {
-	tokens   chan token
-	curToken token
-	ok       bool
-}
-
 func Parse(input io.Reader) []Workspace {
 	var bytes, err = io.ReadAll(input)
 	if err != nil {
