@@ -9,7 +9,23 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"regexp"
+	"strings"
 )
+
+const tempWorkspace = "window_arranger_temp_workspace"
+
+func block(s string) string {
+	var leadingEmptyLine = regexp.MustCompile(`^\s*\n`)
+	var leadngSpace = regexp.MustCompile(`^ +`)
+
+	s = leadingEmptyLine.ReplaceAllString(s, "")
+	if sp := leadngSpace.FindString(s); sp != "" {
+		var indent = regexp.MustCompile(`(?m)^` + sp)
+		s = indent.ReplaceAllString(s, "")
+	}
+	return strings.TrimSpace(s)
+}
 
 func output(out io.Writer, format string, args ...any) {
 	fmt.Fprintf(out, format+"\n", args...)
@@ -28,7 +44,7 @@ func doWait(out io.Writer, workspaces []Workspace, seconds uint) {
 		return
 	}
 
-	output(out, `
+	output(out, block(`
         # Takes a criteria as first argument and deadline as second
         function wait {
             while !  swaymsg "[$1] focus"> /dev/null; do 
@@ -41,7 +57,7 @@ func doWait(out io.Writer, workspaces []Workspace, seconds uint) {
         }
     
         DEADLINE=$(( $(date +%%s) + %d ))
-		`, seconds)
+		`), seconds)
 
 	for _, w := range workspaces {
 		for _, criteria := range getAllCriteria(w.Children) {
