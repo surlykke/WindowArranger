@@ -2,6 +2,57 @@
 
 WindowArranger is a simple tool to arrange windows when using Sway 
 
+## What can it do ?
+
+Here's an example from my own setup. When working, I have (at least) google-chrome, intellij, slack, microsoft teams and a couple of terminals (titled 'Build' and 'Log') open.
+I use a laptop with a 49'' ultrawide external monitor, and I use this yaml file to arrange my windows: 
+
+```
+layout:
+- output: eDP-1 
+  workspaces: 
+  - T['title=Build' 'title=Log'] 
+  posx: 0       #
+  posy: 360
+- output: DP-2 
+  workspaces: 
+  - H[T['app_id=google-chrome'] T['instance="jetbrains-idea"'] V['instance=slack' 'title=".*Microsoft Teams.*"']]
+  posx: 1920 
+  posy: 0
+postcommands:
+- 'swaymsg [instance=slack] resize set width 20ppt'
+- 'swaymsg [app_id=google-chrome] resize set width 35ppt'
+```
+
+The file is called `layout.yaml` and running:
+
+```
+WindowArranger layout.yaml
+```
+
+gives me:
+
+```
+                               DP-2
+                             -------------------------------------------------------------------------------------
+                             | Chrome                      . Intellij                          . Slack           |  
+                             |                             .                                   .                 |
+                             |                             .                                   .                 |
+eDP-1                        |                             .                                   .                 |
+--------------------------   |                             .                                   .                 |
+| Build      | Log       |   |                             .                                   ..................|
+|                        |   |                             .                                   . Teams           |
+|                        |   |                             .                                   .                 |
+|                        |   |                             .                                   .                 |
+|                        |   |                             .                                   .                 |
+|                        |   |                             .                                   .                 |
+--------------------------   -------------------------------------------------------------------------------------
+
+```
+
+Chrome and Intellij are put in a tabbed node for if I add more windows there later.
+
+
 ## Install
 
 You need go installed.
@@ -30,97 +81,52 @@ This installs the executable ```WindowArranger``` into ```$HOME/.local/bin```.
 ## Run
 
 ```
-WindowArranger configfile
+WindowArranger <yaml file> 
 ```
 
-where `configfile` is a file defining how you'd like your windows arranged. 
-
-Assume you have 4 windows open, imaginatively named Window1, Window2, Window3 and Window4. Then `configfile` could look like this:
-
-```
-eDP-1: H[V['title=Window1' 'title=Window2'] T['title=Window3' 'title=Window4']]
-```
-
-This will place a horizontally split workspace on output 'eDP-1', with two containers. The first _split vertically_ containing Window1 and Window2, the second _tabbed_ with Window3 and Window4.
-
-A string like "title=Window1" is used to select a window, and is, in fact, passed on to swaymsg, in constructs like 
-
-```
-swaymsg '[title=Window1] focus'
-```
-
-So those strings must be valid swaymsg criteria. 
-
-Criteria should pick exactly one window. If a criteria matches several windows it's unpredictable how the layout ends up.
-
-If no configfile is given WindowArranger will read the configuration from standard input, so you could also do:
-
-```
-WindowArranger <<EOF
-    eDP-1: H[V['title=Window1' 'title=Window2'] T['title=Window3' 'title=Window4']]
-EOF
-
-```
+where `yaml file` is a file defining how you'd like your windows arranged. 
 
 
-## Cofiguration syntax
+## Yaml file format
 
-The syntax is somewhat aligned with how ```swaymsg -t get_workspaces``` reports layouts.
+The config file must be a valid yaml file defining a map with 2 entries: `monitors` and `postcommands`. 
 
-Informally, a configuration consists of a sequence of expressions of the form:
+### monitors
 
-```
- output: container
-```
+`monitors` must contain a list of maps, each defining a monitor setup. A monitor setup has the following keys:
 
-`output` is the name of an output - eg. eDP-1 or DP-1 and should match one of your outputs. (As reported by `swaymsg -t get_outputs`)
+* `output`: a string defining the monitor. eg. `eDP-1` or `DP-2` as reported by `swaymsg -t get_outputs`
+* `workspaces`: a list of the workspaces you want to have on the monitor. Each workspace is given by a _node definition_. 
+  The syntax of a node definition is 
+  ```
+   layout [ <content> ]
+  ```
+  where `layout` is one of:
+  ```
+  H   for split horizontal
+  V   for split vertical
+  T   for tabbed
+  S   for stacking
+  ```
 
-A container is of the form:
-```
- layout [ content ]
-```
-where `layout` is one of:
-```
-H   for split horizontal
-V   for split vertical
-T   for tabbed
-S   for stacking
-```
-
-and `content` is a (space separated) list of criteria and/or containers. 
+  and `<content>` is a (space separated) list of criteria and/or nodes. 
 
 
-More formally, the syntax, in [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form), is:
-```
-    configuration     ::= output* ;
-    output            ::= output-identifer, ':', container ;
-    output-identifier ::= letter, (letter | digit | '-')* ;
-    container         ::= ('V' | 'H' | 'T' | 'S'), '[', (criteria | container)+, ']' ;
-```
+  More formally, the syntax, in [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form), is:
+  ```
+      node ::= ('V' | 'H' | 'T' | 'S'), '[', (criteria | node)+, ']' ;
+  ```
 
-- `letter` and `digit` are as defined by the unicode standard.
-- `criteria` is a single quoted string, ie. a sequence of characters enclosed in single quotes (`'`). There is no escape mechanism, so a criteria cannot contain single quotes (but double quotes).
-- Whitespace is ignored (except as separator). Anyting from a `#` to end of line (comments) is ignored unless inside a criteria.
+  - `criteria` is a single quoted string, ie. a sequence of characters enclosed in single quotes (`'`). There is no escape mechanism, so a criteria cannot contain single quotes (but double quotes).
+  - Whitespace (outside of strings) is ignored 
 
-Each output expression will create a workspace with the given layout and place it on the output. Workspaces will be numbered in the order they are encountered. 
+* posx, posy: Sets the position of the monitor. Both or none of posx, posy must be given
+* scale: Sets the scale of the monitor
 
-So:
+### postcommands
 
-```
-eDP-1: T['title=VPN' V['title=Work' 'title=Log']]
-eDP-1: H['title=DbVisualizer' 'app_id=firefox']
-DP-1:  H['instance=chromium' title=IntelliJ V['instance: slack' 'title: "^Microsoft Teams"']]
-```
+postcommands defines a list of commands that will be sent to sway after the layouts have been established
 
-would create 3 workspaces: 1 and 2 placed on eDP-1 and 3 placed on DP-1. 
-
-Workspace 1 has a tabbed container, with a window titled 'VPN' and then a v-split container 
-with a window titled 'Work' and a window titled 'Log'
-
-Workspace 2 is horizontally split containing a window titled 'DbVisualizer' and a window with app_id 'firefox'.
-
-Workspace 3 is horizontally split with first a window with instance 'chromium' (an X window), 
-then a window titled 'IntelliJ' and then a v-split container with first slack, then microsoft teams.
 
 ### Usage 
 
@@ -132,27 +138,19 @@ If no configfile is given, `WindowArranger` reads the configuration from standar
 
 #### Options
 ```
-    -dump string
+    -dump 
     -wait uint
 ```
 
 ##### Dump
 
-WindowArranger works by transforming the configuration into a bash script file containing mostly `swaymsg` commands, and then run it.
-
-Rather than running the generated script, `WindowArranger` can write it to stdout or a file. Use the `dump` option to do that:
+WindowArranger works by sending commands to sway over ipc. With `-dump` given, ie:
 
 ```
-WindowArranger -dump arrangescript.sh configfile
+WindowArranger -dump config.yaml
 ```
 
-or
-
-```
-WindowArranger -dump - configfile
-```
-
-The former variant will write to file arrangescript.sh, the latter to stdout.
+commands will be printed to standard out, rather than sent to sway 
 
 
 ##### Wait 
@@ -173,7 +171,12 @@ WindowArranger functions as an interpreter of config files, so you could also wr
 
 ```
 #!/usr/bin/env WindowArranger
-eDP-1: H[V['title=Window1' 'title=Window2'] T['title=Window3' 'title=Window4']]
+monitors:
+- outputname: eDP-1
+  workspaces:
+  - H[V['title=T1' 'title=T2'] H['title=T3' 'title=T4']]
+postcommands:
+- '[title=T1] resize set width 33ppt'
 ```
 
 and run with just:
@@ -198,4 +201,5 @@ YMMV.
 
 ### Surplus windows
 
-Open windows that are not mentioned in the configuration will be left in a workspace named `window_arranger_temp_workspace`.
+Open windows that are not mentioned in the configuration will be left in a workspace numbered one higher than the number of 
+workspaces you've defined. So if you've defined 3 workspaces, surplus windows will end end workspace `4`.

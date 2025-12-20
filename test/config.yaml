@@ -1,0 +1,8 @@
+#!/home/chr/WindowArranger/WindowArranger
+monitors:
+- outputname: eDP-1
+  workspaces:
+  - H[V['title=T1' 'title=T2'] H['title=T3' 'title=T4']]
+postcommands:
+- '[title=T1] resize set width 33ppt'
+
