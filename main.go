@@ -49,18 +49,13 @@ func main() {
 			}
 		} else {
 			var sway = connectToSway()
-			if wait > 0 {
-				doWait(criteria, wait, sway)
-			}
+			doWait(criteria, wait, sway)
 			for _, cmd := range program {
 				executeCmd(cmd, sway)
 			}
 		}
 	}
 
-	/*if dumpFile == "" {
-		run(out.(*os.File).Name())
-	}*/
 }
 
 func getCliArgs() (dump bool, wait uint, configFilePath string) {
@@ -126,10 +121,10 @@ func doWait(criteria []string, secs uint, sway net.Conn) {
 		if allFound {
 			return
 		}
-		time.Sleep(1 * time.Second)
 		if time.Now().After(deadLine) {
 			panic("Not all criteria could be matched")
 		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -140,14 +135,12 @@ func executeCmd(cmd string, sway net.Conn) {
 		for _, subresp := range resp {
 			if success, ok := subresp["success"].(bool); !(ok && success) {
 				panic("Command failed:" + cmd + ":" + subresp["error"].(string))
-
 			}
 		}
 	}
 }
 
 func sendCommand(cmd string, sway net.Conn) []map[string]any {
-	fmt.Println("Execute:", cmd)
 	var (
 		msg  = []byte("i3-ipc")
 		resp = make([]byte, 2000)
