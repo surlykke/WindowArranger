@@ -140,6 +140,7 @@ If no configfile is given, `WindowArranger` reads the configuration from standar
 ```
     -dump 
     -wait uint
+    -debug
 ```
 
 ##### Dump
@@ -164,6 +165,10 @@ WindowArranger -wait 20 configfile
 `WindowArranger` will wait up to 20 seconds for all criteria in the configuration to find a match.
 
 If the 20 seconds pass without all windows appearing, `WindowArranger` exits with a non-zero exit code.
+
+##### Debug
+
+Given the `debug` option, WindowArranger will print a bit more information when exitting with error
 
 ### Shebang
 

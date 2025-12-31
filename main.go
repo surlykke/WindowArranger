@@ -28,13 +28,24 @@ func main() {
 	var (
 		err            error
 		dump           bool
+		debug          bool
 		configFilePath string
 	)
-	dump, wait, configFilePath = getCliArgs()
-	PrintErr("dump: ", dump)
-	PrintErr("waitSeconds: ", wait)
+
+	defer func() {
+		if !debug {
+			if r := recover(); r != nil {
+				fmt.Fprintln(os.Stderr, "\nError:", r)
+				os.Exit(1)
+			}
+		}
+	}()
+
+	dump, wait, debug, configFilePath = getCliArgs()
+	fmt.Fprintln(os.Stderr, "dump: ", dump)
+	fmt.Fprintln(os.Stderr, "waitSeconds: ", wait)
 	if configFilePath != "" {
-		PrintErr("input file: ", configFilePath)
+		fmt.Fprintln(os.Stderr, "input file: ", configFilePath)
 	}
 
 	if input, err = getInputReader(configFilePath); err != nil {
@@ -58,7 +69,7 @@ func main() {
 
 }
 
-func getCliArgs() (dump bool, wait uint, configFilePath string) {
+func getCliArgs() (dump bool, wait uint, debug bool, configFilePath string) {
 	flag.Usage = func() {
 		var out = flag.CommandLine.Output()
 		fmt.Fprintln(out, "usage:")
@@ -70,6 +81,7 @@ func getCliArgs() (dump bool, wait uint, configFilePath string) {
 
 	var df = flag.Bool("dump", false, "Dont execute generated commands, but write them to standard out.")
 	var ws = flag.Uint("wait", 0, "Wait <uint seconds> for all criteria in config to match a window")
+	var db = flag.Bool("debug", false, "On error, give a bit more info on where it occurred.")
 	flag.Parse()
 
 	if len(flag.Args()) > 1 {
@@ -78,9 +90,9 @@ func getCliArgs() (dump bool, wait uint, configFilePath string) {
 	}
 
 	if len(flag.Args()) == 1 {
-		return *df, *ws, flag.Args()[0]
+		return *df, *ws, *db, flag.Args()[0]
 	} else {
-		return *df, *ws, ""
+		return *df, *ws, *db, ""
 	}
 }
 
@@ -92,10 +104,6 @@ func getInputReader(path string) (io.ReadCloser, error) {
 	} else {
 		return f, nil
 	}
-}
-
-func PrintErr(vals ...any) {
-	fmt.Fprintln(os.Stderr, vals...)
 }
 
 func connectToSway() net.Conn {
