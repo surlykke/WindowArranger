@@ -131,7 +131,7 @@ postcommands defines a list of commands that will be sent to sway after the layo
 ### Usage 
 
 ```
-  WindowWrapper [option]... [configfile]
+  WindowArranger [option]... [configfile]
 ```
 
 If no configfile is given, `WindowArranger` reads the configuration from standard input.
@@ -202,4 +202,4 @@ YMMV.
 ### Surplus windows
 
 Open windows that are not mentioned in the configuration will be left in a workspace numbered one higher than the number of 
-workspaces you've defined. So if you've defined 3 workspaces, surplus windows will end end workspace `4`.
+workspaces you've defined. So if you've defined 3 workspaces, surplus windows will end up in workspace `4`.
