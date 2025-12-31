@@ -21,7 +21,7 @@ type Layout struct {
 }
 
 type Monitor struct {
-	OutputName string
+	Name       string
 	Workspaces []string
 	Posx       *int
 	Posy       *int
@@ -53,18 +53,18 @@ func CompileConfig() []string {
 			for _, workspaceSpec := range monitorLayout.Workspaces {
 				var node = parse(workspaceSpec)
 				generate(node, workspaceNo, true, add)
-				add("move workspace to %s", monitorLayout.OutputName)
+				add("move workspace to %s", monitorLayout.Name)
 				criteria = node.allcriteria
 				workspaceNo++
 			}
 			if monitorLayout.Posx != nil && monitorLayout.Posy != nil {
-				add("output %s position %d %d", monitorLayout.OutputName, *monitorLayout.Posx, *monitorLayout.Posy)
+				add("output %s position %d %d", monitorLayout.Name, *monitorLayout.Posx, *monitorLayout.Posy)
 			} else if monitorLayout.Posx != nil || monitorLayout.Posy != nil {
-				panic(monitorLayout.OutputName + ": When giving position, both posx and posy must be defined")
+				panic(monitorLayout.Name + ": When giving position, both posx and posy must be defined")
 			}
 
 			if monitorLayout.Scale != nil {
-				add("output %s scale %.1f", monitorLayout.OutputName, *monitorLayout.Scale)
+				add("output %s scale %.1f", monitorLayout.Name, *monitorLayout.Scale)
 			}
 
 		}

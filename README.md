@@ -9,12 +9,12 @@ I use a laptop with a 49'' ultrawide external monitor, and I use this yaml file 
 
 ```
 layout:
-- output: eDP-1 
+- name: eDP-1 
   workspaces: 
   - T['title=Build' 'title=Log'] 
   posx: 0       #
   posy: 360
-- output: DP-2 
+- name: DP-2 
   workspaces: 
   - H[T['app_id=google-chrome'] T['instance="jetbrains-idea"'] V['instance=slack' 'title=".*Microsoft Teams.*"']]
   posx: 1920 
@@ -95,7 +95,7 @@ The config file must be a valid yaml file defining a map with 2 entries: `monito
 
 `monitors` must contain a list of maps, each defining a monitor setup. A monitor setup has the following keys:
 
-* `output`: a string defining the monitor. eg. `eDP-1` or `DP-2` as reported by `swaymsg -t get_outputs`
+* `name`: a string defining the monitor. eg. `eDP-1` or `DP-2` as reported by `swaymsg -t get_outputs`
 * `workspaces`: a list of the workspaces you want to have on the monitor. Each workspace is given by a _node definition_. 
   The syntax of a node definition is 
   ```
@@ -120,8 +120,8 @@ The config file must be a valid yaml file defining a map with 2 entries: `monito
   - `criteria` is a single quoted string, ie. a sequence of characters enclosed in single quotes (`'`). There is no escape mechanism, so a criteria cannot contain single quotes (but double quotes).
   - Whitespace (outside of strings) is ignored 
 
-* posx, posy: Sets the position of the monitor. Both or none of posx, posy must be given
-* scale: Sets the scale of the monitor
+* posx, posy: Optional. Sets the position of the monitor. Both or none of posx, posy must be given
+* scale: Optional. Sets the scale of the monitor
 
 ### postcommands
 
@@ -172,7 +172,7 @@ WindowArranger functions as an interpreter of config files, so you could also wr
 ```
 #!/usr/bin/env WindowArranger
 monitors:
-- outputname: eDP-1
+- name: eDP-1
   workspaces:
   - H[V['title=T1' 'title=T2'] H['title=T3' 'title=T4']]
 postcommands:

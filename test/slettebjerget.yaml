@@ -1,11 +1,11 @@
 #!/usr/bin/env WindowArranger
 monitors:
-- output: eDP-1 
+- name: eDP-1 
   posx: 0    # Put laptop screen to the left so that its bottom alignes with DP-2 (cf. below)
   posy: 360  # 
   workspaces: 
   - T['title=Build' 'title=Log'] # Put terminals titled 'Build' and 'Log' on laptop screen in a tabbed layout
-- output: DP-2  
+- name: DP-2  
   posx: 1920 # Put DP-2 to the right of eDP-1
   posy: 0    # 
   workspaces: 
