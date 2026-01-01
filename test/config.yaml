@@ -1,6 +1,6 @@
 #!/home/chr/WindowArranger/WindowArranger
 monitors:
-- name: eDP-1
+- model: "0x40BA"
   workspaces:
   - H[V['title=T1' 'title=T2'] H['title=T3' 'title=T4']]
 postcommands:

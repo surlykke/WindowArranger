@@ -95,7 +95,12 @@ The config file must be a valid yaml file defining a map with 2 entries: `monito
 
 `monitors` must contain a list of maps, each defining a monitor setup. A monitor setup has the following keys:
 
-* `name`: a string defining the monitor. eg. `eDP-1` or `DP-2` as reported by `swaymsg -t get_outputs`
+* `name`: Name of the monitor. eg. `eDP-1` or `DP-2` as reported by `swaymsg -t get_outputs`
+* `make`: Make of the moniter as reported by swaymsg
+* `model`: Model of the moniter as reported by swaymsg
+* `serial`: Serial of the moniter as reported by swaymsg
+
+  At least one of `name`, `make`, `model` and `serial` must be given. They should uniquely identify the monitor.
 * `workspaces`: a list of the workspaces you want to have on the monitor. Each workspace is given by a _node definition_. 
   The syntax of a node definition is 
   ```

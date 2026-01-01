@@ -6,18 +6,17 @@
 package main
 
 import (
-	"encoding/binary"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"time"
+
+	"github.com/surlykke/WindowArranger/compile"
+	"github.com/surlykke/WindowArranger/sway"
 )
 
 var (
-	layout   Layout
 	input    io.ReadCloser
 	out      io.WriteCloser
 	wait     uint
@@ -52,21 +51,27 @@ func main() {
 		panic(err)
 	} else {
 		defer input.Close()
-		var program = CompileConfig()
+		var program, criteria = compile.CompileConfig(input)
 		if dump {
 			fmt.Println()
 			for _, c := range program {
 				fmt.Println(c)
 			}
 		} else {
-			var sway = connectToSway()
-			doWait(criteria, wait, sway)
+			doWait(criteria, wait)
 			for _, cmd := range program {
-				executeCmd(cmd, sway)
+				if debug {
+					fmt.Fprintln(os.Stderr, cmd)
+				}
+				var responses = sway.Execute(cmd)
+				for i, response := range responses {
+					if !response.Success {
+						panic(fmt.Sprintf("Command '%s' failed at subcommand %d: %s", cmd, i+1, response.Error))
+					}
+				}
 			}
 		}
 	}
-
 }
 
 func getCliArgs() (dump bool, wait uint, debug bool, configFilePath string) {
@@ -81,7 +86,7 @@ func getCliArgs() (dump bool, wait uint, debug bool, configFilePath string) {
 
 	var df = flag.Bool("dump", false, "Dont execute generated commands, but write them to standard out.")
 	var ws = flag.Uint("wait", 0, "Wait <uint seconds> for all criteria in config to match a window")
-	var db = flag.Bool("debug", false, "On error, give a bit more info on where it occurred.")
+	var db = flag.Bool("debug", false, "Write commands to stdout. On error, give a bit info on where it occurred.")
 	flag.Parse()
 
 	if len(flag.Args()) > 1 {
@@ -106,22 +111,12 @@ func getInputReader(path string) (io.ReadCloser, error) {
 	}
 }
 
-func connectToSway() net.Conn {
-	if swaysock := os.Getenv("SWAYSOCK"); swaysock == "" {
-		panic("SWAYSOCK not set")
-	} else if sock, err := net.Dial("unix", swaysock); err != nil {
-		panic(err)
-	} else {
-		return sock
-	}
-}
-
-func doWait(criteria []string, secs uint, sway net.Conn) {
+func doWait(criteria []string, secs uint) {
 	var deadLine = time.Now().Add(time.Duration(secs) * time.Second)
 	for {
 		var allFound = true
 		for _, criterium := range criteria {
-			if !sendCommand(fmt.Sprintf("[%s] focus", criterium), sway)[0]["success"].(bool) {
+			if !sway.Execute(fmt.Sprintf("[%s] focus", criterium))[0].Success {
 				allFound = false
 				break
 			}
@@ -134,36 +129,4 @@ func doWait(criteria []string, secs uint, sway net.Conn) {
 		}
 		time.Sleep(1 * time.Second)
 	}
-}
-
-func executeCmd(cmd string, sway net.Conn) {
-	if resp := sendCommand(cmd, sway); len(resp) == 0 {
-		panic("Empty response")
-	} else {
-		for _, subresp := range resp {
-			if success, ok := subresp["success"].(bool); !(ok && success) {
-				panic("Command failed:" + cmd + ":" + subresp["error"].(string))
-			}
-		}
-	}
-}
-
-func sendCommand(cmd string, sway net.Conn) []map[string]any {
-	var (
-		msg  = []byte("i3-ipc")
-		resp = make([]byte, 2000)
-		m    = make([]map[string]any, 10)
-	)
-	msg = binary.NativeEndian.AppendUint32(msg, uint32(len([]byte(cmd))))
-	msg = binary.NativeEndian.AppendUint32(msg, 0)
-	msg = append(msg, []byte(cmd)...)
-	if _, err := sway.Write(msg); err != nil {
-		panic(err)
-	} else if n, err := sway.Read(resp); err != nil {
-		panic(err)
-	} else if err := json.Unmarshal(resp[14:n], &m); err != nil {
-		panic(err)
-	}
-
-	return m
 }
