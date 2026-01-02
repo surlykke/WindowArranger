@@ -3,7 +3,6 @@ package sway
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"net"
 	"os"
 )
@@ -27,10 +26,6 @@ type Output struct {
 	Make   string
 	Model  string
 	Serial string
-}
-
-func (o Output) String() string {
-	return fmt.Sprintf("id: %d, name: %s, make: %s, model: %s, serial: %s", o.Id, o.Name, o.Make, o.Model, o.Serial)
 }
 
 func GetOutputs() (outputs []Output) {

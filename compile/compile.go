@@ -8,7 +8,7 @@ package compile
 import (
 	"fmt"
 	"io"
-	"strings"
+	"slices"
 	"unicode"
 
 	"github.com/goccy/go-yaml"
@@ -108,79 +108,95 @@ func adjustName(m Monitor, outputs []sway.Output) string {
 	panic(fmt.Sprintf("No match for monitor, make: %s, model: %s, serial %s", m.Make, m.Model, m.Serial))
 }
 
-func parse(workspaceSpec string) Node {
-	var runes = []rune(strings.TrimSpace(workspaceSpec))
-	// Whitespace (outside of strings) is not significant, not even as separator
-	runes = removeWhitespace(runes)
-	// Use 0 as end of input marker
-	runes = append(runes, 0)
-	var pos = 0
+const (
+	H uint8 = iota
+	V
+	T
+	S
+	Lb
+	Rb
+	Str
+	END
+)
 
-	var runeToLayout = map[rune]string{
-		'H': "splith",
-		'V': "splitv",
-		'T': "tabbed",
-		'S': "stacked",
+func parse(workspaceSpec string) Node {
+	var runes, pos = append([]rune(workspaceSpec), 0), -1
+
+	var curToken uint8
+	var curText string
+
+	var readString = func() string {
+		var start = pos
+		for pos++; runes[pos] != 0; pos++ {
+			if runes[pos] == '\'' {
+				return string(runes[start+1 : pos])
+			}
+		}
+		panic("Runaway string")
+	}
+
+	var nextToken = func() uint8 {
+		for pos++; unicode.IsSpace(runes[pos]); pos++ {
+		}
+
+		switch runes[pos] {
+		case 'H':
+			curToken, curText = H, "splith"
+		case 'V':
+			curToken, curText = V, "splitv"
+		case 'T':
+			curToken, curText = T, "tabbed"
+		case 'S':
+			curToken, curText = S, "stacked"
+		case '[':
+			curToken, curText = Lb, ""
+		case ']':
+			curToken, curText = Rb, ""
+		case '\'':
+			curToken, curText = Str, readString()
+		case 0:
+			curToken, curText = END, ""
+		default:
+			panic("Unexpected character: " + string(runes[pos]))
+		}
+
+		return curToken
 	}
 
 	var readNode func() Node
 
 	readNode = func() Node {
-		var node Node
-		var ok bool
-		if node.layout, ok = runeToLayout[runes[pos]]; !ok {
+		if !slices.Contains([]uint8{H, V, T, S}, curToken) {
 			panic(fmt.Sprintf("H, V, T or S expected at: '%s':%d", string(runes), pos))
-		} else {
-			pos++
-			if '[' != runes[pos] {
-				panic("[ expected")
-			}
-			pos++
-			for {
-				switch runes[pos] {
-				case ']':
-					if len(node.allcriteria) == 0 {
-						panic("empty node")
-					}
-					pos++
-					return node
-				case '\'':
-					var start = pos + 1
-					for pos++; runes[pos] != '\''; pos++ {
-						if runes[pos] == 0 {
-							panic("Runaway string: " + string(runes[start-1:pos]))
-						}
-					}
-					node.allcriteria = append(node.allcriteria, string(runes[start:pos]))
-					pos++
-				default:
-					node.subnodes = append(node.subnodes, readNode())
-					node.allcriteria = append(node.allcriteria, node.subnodes[len(node.subnodes)-1].allcriteria...)
+		}
+
+		var node = Node{layout: curText}
+		if nextToken() != Lb {
+			panic(fmt.Sprintf("[ expected, got: %d\n", curToken))
+		}
+		for {
+			switch nextToken() {
+			case Rb:
+				if len(node.allcriteria) == 0 {
+					panic("empty node")
 				}
+				return node
+			case Str:
+				node.allcriteria = append(node.allcriteria, curText)
+			default:
+				node.subnodes = append(node.subnodes, readNode())
+				node.allcriteria = append(node.allcriteria, node.subnodes[len(node.subnodes)-1].allcriteria...)
 			}
 		}
 	}
 
+	nextToken()
 	var node = readNode()
-	if 0 != runes[pos] {
+	if nextToken() != END {
 		panic("Workspace '" + workspaceSpec + "': trailing characters: " + string(runes[pos:]))
 	}
 
 	return node
-}
-
-func removeWhitespace(runes []rune) []rune {
-	var trimmed = make([]rune, 0, len(runes))
-	var instring = false
-	for _, r := range runes {
-		if r == '\'' {
-			instring = !instring
-		} else if unicode.IsSpace(r) && !instring {
-			continue
-		}
-		trimmed = append(trimmed, r)
-	}
-	return trimmed
 }
 
 func generate(node Node, workspaceNo int, root bool, add func(string, ...any)) {
