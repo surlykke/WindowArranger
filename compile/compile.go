@@ -8,7 +8,6 @@ package compile
 import (
 	"fmt"
 	"io"
-	"slices"
 	"unicode"
 
 	"github.com/goccy/go-yaml"
@@ -108,91 +107,59 @@ func adjustName(m Monitor, outputs []sway.Output) string {
 	panic(fmt.Sprintf("No match for monitor, make: %s, model: %s, serial %s", m.Make, m.Model, m.Serial))
 }
 
-const (
-	H uint8 = iota
-	V
-	T
-	S
-	Lb
-	Rb
-	Str
-	END
-)
-
 func parse(workspaceSpec string) Node {
-	var runes, pos = append([]rune(workspaceSpec), 0), -1
+	var runes = append([]rune(workspaceSpec), 0) // Append rune 0 as an end-marker
+	var pos = -1
+	var curString string
 
-	var curToken uint8
-	var curText string
-
-	var readString = func() string {
-		var start = pos
-		for pos++; runes[pos] != 0; pos++ {
-			if runes[pos] == '\'' {
-				return string(runes[start+1 : pos])
-			}
-		}
-		panic("Runaway string")
-	}
-
-	var nextToken = func() uint8 {
+	var nextToken = func() rune {
 		for pos++; unicode.IsSpace(runes[pos]); pos++ {
 		}
-
-		switch runes[pos] {
-		case 'H':
-			curToken, curText = H, "splith"
-		case 'V':
-			curToken, curText = V, "splitv"
-		case 'T':
-			curToken, curText = T, "tabbed"
-		case 'S':
-			curToken, curText = S, "stacked"
-		case '[':
-			curToken, curText = Lb, ""
-		case ']':
-			curToken, curText = Rb, ""
-		case '\'':
-			curToken, curText = Str, readString()
-		case 0:
-			curToken, curText = END, ""
-		default:
-			panic("Unexpected character: " + string(runes[pos]))
+		if runes[pos] == '\'' { // We use '\'' to signify string token, and move pos forward to end of string, collecting it's content into curString
+			var start = pos + 1
+			for pos++; runes[pos] != '\''; pos++ {
+				if runes[pos] == 0 {
+					panic("Runaway string")
+				}
+			}
+			curString = string(runes[start:pos])
 		}
 
-		return curToken
+		return runes[pos]
 	}
 
 	var readNode func() Node
 
-	readNode = func() Node {
-		if !slices.Contains([]uint8{H, V, T, S}, curToken) {
+	readNode = func() (node Node) {
+		if layout, ok := map[rune]string{'H': "splith", 'V': "splitv", 'T': "tabbed", 'S': "stacking"}[runes[pos]]; !ok {
 			panic(fmt.Sprintf("H, V, T or S expected at: '%s':%d", string(runes), pos))
+		} else {
+			node.layout = layout
 		}
 
-		var node = Node{layout: curText}
-		if nextToken() != Lb {
-			panic(fmt.Sprintf("[ expected, got: %d\n", curToken))
+		if nextToken() != '[' {
+			panic(fmt.Sprintf("[ expected, got: %d\n", runes[pos]))
 		}
 		for {
 			switch nextToken() {
-			case Rb:
+			case ']':
 				if len(node.allcriteria) == 0 {
 					panic("empty node")
 				}
 				return node
-			case Str:
-				node.allcriteria = append(node.allcriteria, curText)
+			case '\'':
+				node.allcriteria = append(node.allcriteria, curString)
 			default:
-				node.subnodes = append(node.subnodes, readNode())
-				node.allcriteria = append(node.allcriteria, node.subnodes[len(node.subnodes)-1].allcriteria...)
+				var subnode = readNode()
+				node.subnodes = append(node.subnodes, subnode)
+				node.allcriteria = append(node.allcriteria, subnode.allcriteria...)
 			}
 		}
 	}
 
 	nextToken()
 	var node = readNode()
-	if nextToken() != END {
+	if nextToken() != 0 {
 		panic("Workspace '" + workspaceSpec + "': trailing characters: " + string(runes[pos:]))
 	}
 
